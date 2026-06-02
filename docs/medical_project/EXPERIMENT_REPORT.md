@@ -1,0 +1,247 @@
+# MedicalGPT Medical SFT + GRPO Experiment Report
+
+Generated at: 2026-05-31 03:36:57 UTC
+
+## 1. Project Background
+
+This project extends the open-source MedicalGPT training framework for a medical-domain SFT and small-scale GRPO alignment experiment. The base model is Qwen2.5-7B-Instruct, adapted with LoRA on filtered medical QA data and then further aligned with a medical reward design for open-ended health consultation style prompts.
+
+The goal is to build a reproducible experimental pipeline for data filtering, SFT training, GRPO reward design, multi-metric evaluation, and report generation. This is a model training experiment, not a medical diagnosis system.
+
+## 2. MedicalGPT Baseline and Project Goal
+
+The baseline is the original Qwen2.5-7B-Instruct model evaluated with the same held-out medical QA and long-text data as the adapted models. The current report focuses on the V100 mainline evaluation results that have already completed. A100 SFT and ongoing 30k-GRPO evaluation results can be added in a later report refresh.
+
+Target comparison groups in this report:
+
+- Base: Qwen2.5-7B-Instruct
+- SFT 10k LoRA V100
+- SFT 30k LoRA V100
+- GRPO 500 from SFT10k V100
+- GRPO 1000 from SFT10k V100
+
+## 3. Data Source and Leakage Avoidance
+
+Source data comes from local MedicalGPT medical QA files converted into a normalized QA JSONL format. C-Eval test data was not used for filtering, training, tuning, or report selection. Optional C-Eval dev/valid data is treated only as a development/evaluation source where explicitly stated.
+
+| Item | Value |
+| --- | --- |
+| Raw candidate samples | 1,269,281 |
+| Scored samples after filtering | 1,236,074 |
+| Advertising/contact samples removed | 33,207 |
+| High-risk expression samples downweighted | 14,366 |
+| SFT top-k outputs | 1000, 10000, 30000 |
+| GRPO samples | 1,000 |
+| Held-out QA eval samples | 500 |
+| Held-out long-text eval samples | 1,000 |
+
+Top category distribution among the selected Top30k SFT pool:
+
+| Category | Samples |
+| --- | --- |
+| 妇产科学 | 8,511 |
+| 慢病管理 | 5,185 |
+| 医学影像初步解读 | 3,406 |
+| 药物禁忌 | 2,853 |
+| 护理与康复建议 | 2,784 |
+| 传染病学 | 1,726 |
+| 外科学 | 1,238 |
+| 儿科学 | 1,198 |
+
+Leakage and wording constraints:
+
+- C-Eval test data is not used.
+- Embedding similarity and QA reference similarity are not medical accuracy.
+- Keyword or structure heuristics are not clinical correctness checks.
+- The project output is not intended for medical diagnosis or treatment.
+
+## 4. Embedding Similarity Filtering Method
+
+Candidate QA samples were scored against medical topic queries with `models/bge-m3` using the `sentence_transformers` backend. The filtering score was:
+
+```text
+0.7 * max_similarity + 0.3 * mean_top5_similarity, multiplied by quality_weight
+```
+
+Filtering also removed advertising/contact/marketing content and downweighted samples containing high-risk absolute medical expressions. The Top1k manual review file was generated at `docs/medical_project/top1k_manual_review.md`.
+
+## 5. SFT Training Settings
+
+SFT uses Qwen2.5-7B-Instruct with LoRA. The main V100 runs use LoRA rank 8, alpha 16, dropout 0.05, and target modules `q_proj,v_proj`. A100 runs are included below as training artifacts but are not yet part of the main downstream evaluation table in this initial report.
+
+| Run | Adapter | Train samples | Train loss | Eval loss | PPL | Runtime(s) | Samples/s |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| SFT smoke 1k | yes | 1,000 | 2.3279 | 1.9463 | 7.0027 | 904.1 | 2.654 |
+| SFT 10k V100 | yes | 10,000 | 2.1123 | 2.0316 | 7.6262 | 3990.1 | 2.506 |
+| SFT 30k V100 | yes | 30,000 | 2.1268 | 2.0348 | 7.6506 | 13077.1 | 2.294 |
+| SFT 10k A100 1GPU | yes | 10,000 | 2.1133 | 2.0326 | 7.6340 | 3034.1 | 3.296 |
+| SFT 30k A100 1GPU | yes | 30,000 | 2.1270 | 2.0348 | 7.6506 | 5636.3 | 5.323 |
+
+## 6. GRPO Reward Design
+
+The first-version medical GRPO reward combines structure, reference similarity, safety, and length/repetition signals:
+
+```text
+R = 0.35 * format
+  + 0.30 * reference_similarity
+  + 0.25 * safety
+  - 0.10 * repetition_penalty
+```
+
+The reference similarity term measures semantic closeness to the reference answer. It is not medical accuracy. The safety term rewards cautious medical wording and penalizes absolute diagnosis, concrete prescription dosage, replacing doctor visits, and unsafe medication changes.
+
+GRPO data construction summary:
+
+| Item | Value |
+| --- | --- |
+| Source SFT data | data_processed/medical_project/sft/medical_sft_top10000.jsonl |
+| GRPO output | data_processed/medical_project/grpo/medical_grpo_1000.jsonl |
+| Samples | 1,000 |
+| Preferred categories | 急诊医学, 内科学, 药物禁忌, 儿科学, 妇产科学 |
+
+GRPO training artifacts:
+
+| Run | Adapter | Train samples | Train loss | Eval loss | PPL | Runtime(s) | Samples/s |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| GRPO smoke | yes | 90 | -0.1714 | - | - | 617.0 | 0.065 |
+| GRPO 500 from SFT10k V100 | yes | 450 | -0.0122 | - | - | 960.2 | 0.469 |
+| GRPO 1000 from SFT10k V100 | yes | 900 | -0.0271 | - | - | 14890.2 | 0.060 |
+| GRPO 1000 from SFT30k A100 1GPU | yes | 1,000 | -0.0616 | - | - | 9549.3 | 0.105 |
+
+## 7. Evaluation Sets and Metrics
+
+The evaluation script compares Base/SFT/GRPO models with the following metrics:
+
+- PPL / eval loss on held-out medical long-text QA samples.
+- QA reference similarity on generated answers. This is not medical accuracy.
+- Structure and safety heuristics on generated answers.
+- C-Eval medical dev/valid subset accuracy as a small auxiliary sanity check. C-Eval test is not used.
+
+Current held-out QA samples: 500; held-out long-text samples: 1,000. C-Eval samples in the current run are small, so the C-Eval result should be treated as a workflow sanity check rather than a strong benchmark claim.
+
+## 8. Experiment Results
+
+| Model | Eval loss | PPL | Mean ref sim | Safety pass | Structure hit | High-risk expr | Avg len | C-Eval acc(samples) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Base: Qwen2.5-7B-Instruct | 3.1326 | 22.9328 | 0.9081 | 93.0% | 32.5% | 2.0% | 632.6 | 100.0% (15) |
+| SFT 10k LoRA V100 | 2.8644 | 17.5387 | 0.9111 | 98.5% | 0.0% | 1.0% | 291.7 | 100.0% (15) |
+| SFT 30k LoRA V100 | 2.8652 | 17.5520 | 0.9096 | 96.0% | 0.0% | 3.5% | 266.6 | 100.0% (15) |
+| GRPO 500 from SFT10k V100 | 2.8648 | 17.5459 | 0.9127 | 98.5% | 0.0% | 1.5% | 278.2 | 100.0% (15) |
+| GRPO 1000 from SFT10k V100 | 2.8652 | 17.5525 | 0.9095 | 97.5% | 0.5% | 2.0% | 292.0 | 100.0% (15) |
+
+Initial observations:
+
+- The lowest PPL in the current V100 mainline is `SFT 10k LoRA V100` with PPL 17.5387.
+- The highest mean QA reference similarity is `GRPO 500 from SFT10k V100` with mean similarity 0.9127.
+- The highest safety pass rate is `GRPO 500 from SFT10k V100` with safety pass 98.5%.
+- SFT and GRPO reduce PPL relative to the base model on the held-out medical text set.
+- SFT/GRPO answers are much shorter than base model answers in this run. This improves some safety heuristics but hurts explicit structure-hit metrics.
+
+## 9. Case Study: SFT vs GRPO
+
+### Case 1: 急诊医学
+
+**Question**: 是否是迷走神经，呼吸困难,呕吐,耳鸣,全身抽搐晚12点,失眠
+
+**Reference answer**: 病情分析：病情分析：无论是在轻微的运动之后,还是在休息的时候,如果发现在呼吸时有吸不进气,只呼不吸的感觉,或者是呼吸很快,都可能是由於心脏病或者是呼吸系统的疾病.若在吃饭时突然发生呼吸困难,可能是由於窒息,要施行急救,否则病人就有得不到氧气供应的危险.所有呼吸困难的病症都是十分严重的,需要紧急治疗,不能耽误.1,症状：在精神极度紧张时突然发生呼吸困难.可能：精神紧张.处理：如是第一次发作,去看医生.要查明呼吸困难是不是因为紧张或其他原因所引起的.2,症状：数天来曾咳出灰色或黄绿色的痰.现在发生呼吸困难.可能：慢性支气管炎.处理：诊断证实是慢性支气管炎,医生可能用抗生素治疗,吸烟的病人要戒烟.3,症状：呼吸困难的同时有收紧压迫性的胸痛.持续了几分钟.可能：心绞痛.处理：赶快去看医生.医生可能要为病人做心电图检查....
+
+**Before (outputs/medical_project/sft/qwen25_7b_lora_10k_v100)**: 你好，根据你的描述，考虑是癫痫的可能性大，建议到医院做脑电图检查确诊，可以服用卡马西平片，苯妥英钠片治疗，注意休息，避免劳累，祝早日康复
+
+**After (outputs/medical_project/grpo/qwen25_7b_lora_10k_v100_grpo_500)**: 你好，根据你的描述，考虑是神经衰弱引起的症状，建议口服谷维素，安神补脑液试试，注意休息，避免刺激性食物。
+
+**Observation**: This automatic case view is for qualitative inspection. It should be reviewed manually before making strong claims about medical correctness.
+
+### Case 2: 急诊医学
+
+**Question**: 请描述气胸的鉴别诊断方法
+
+**Reference answer**: 一、支气管哮喘和阻塞性肺气肿 有气急和呼吸困难，体征亦与自发性气胸相似，但肺气肿呼吸困难是长期缓慢加重的，支气管哮喘病人有多年哮喘反复发作史。当哮喘和肺气肿病人呼吸困难突然加重且有胸痛，应考虑并发气胸的可能，X线检查可以作出鉴别。二、急性心肌梗塞病人亦有急起胸痛、胸闷、甚至呼吸困难、休克等临床表现，但常有高血压、动脉粥样硬化、冠心病史。体征、心电图和X线胸透有助于诊断。三、肺栓塞 有胸痛、呼吸困难和紫绀等酷似自发性气胸的临床表现，但病人往往有咯血和低热，并常有下肢或盆腔栓塞性静脉炎、骨折、严重心脏病、心房纤颤等病史，或发生在长期卧床的老年患者。体检和X线检查有助于鉴别。四、肺大疱 位于肺周边部位的肺大疱有时在X线下被误为气胸。肺大疱可因先天发育形成，也可因支气管内活瓣阻塞而形成张力性囊腔或巨型空腔，起病缓慢，气...
+
+**Before (outputs/medical_project/sft/qwen25_7b_lora_10k_v100)**: 气胸的鉴别诊断：1.自发性气胸多见于瘦高体型的男性青壮年，常在剧烈活动后发生，有明显的呼吸困难，胸部X线检查可明确诊断。2.继发性气胸多见于慢性阻塞性肺疾病、支气管扩张、肺癌等患者，常在咳嗽、用力后发生，胸部X线检查可明确诊断。3.张力性气胸多见于严重创伤、胸部手术后，常在短时间内出现严重的呼吸困难，胸部X线检查可明确诊断。4.闭合性气胸多见于胸部外伤后，常在短时间内出现呼吸困难，胸部X线检查可明确诊断。5.开放性气胸多见于胸部外伤后，常在短时间内出现严重的呼吸困难，胸部X线检查可明确诊断。
+
+**After (outputs/medical_project/grpo/qwen25_7b_lora_10k_v100_grpo_500)**: 气胸的鉴别诊断：1.自发性气胸：多见于瘦高体型的青壮年，常在剧烈运动后发病，起病急骤，主要表现为突发性一侧胸痛，继之出现呼吸困难，严重者可出现发绀、烦躁不安、大汗淋漓、脉速、血压下降等休克症状。2.张力性气胸：多见于肺结核空洞、慢性阻塞性肺疾病、支气管肺癌等基础疾病的患者，常因剧烈咳嗽、用力、屏气、剧烈运动等诱发，起病急骤，表现为突然出现一侧胸痛、呼吸困难、发绀、烦躁不安、大汗淋漓、脉速、血压下降等休克症状，严重者可迅速出现昏迷、抽搐、心搏骤停。3.血气胸：多见于胸部外伤、胸部手术、胸部肿瘤等基础疾病的患者，常因剧烈咳嗽、用力、屏气、剧烈运动等诱发，起病急骤，表现为突然出现一侧胸痛、呼吸困难、发绀、烦躁不安、大汗淋漓、脉速、血压下降等休克症状，严重者可迅速出现昏迷、抽搐、心搏骤停。4.急性心肌梗死：多见于中老年人，常因剧烈运动、情绪激动、饱餐、寒冷等诱发，起病急骤，表现为突发性胸痛、呼吸困难、发绀、烦躁不安、大汗淋漓、脉速、血压下降等休克症状，严重者可迅速出现昏迷、抽搐、心搏骤停。5.急性肺栓塞：多见于中老年人，常因剧烈运动、情绪激动、饱餐、寒冷等诱发，起病急骤，表现为突发性胸痛、呼吸...
+
+**Observation**: This automatic case view is for qualitative inspection. It should be reviewed manually before making strong claims about medical correctness.
+
+### Case 3: 急诊医学
+
+**Question**: 骤发剧烈上腹痛，伴腹胀、恶心、呕吐一天，全部症状骤发剧烈上腹痛，伴腹胀、恶心、呕吐一天患者于发病当天无明显诱因突然复发剧烈腹痛，初起时觉剑突下偏右呈复发性胀痛，腹痛迅速波及全腹部转成持续性，刀割样剧烈疼痛，并向后背放射，伴恶心、呕吐，吐出胃内容物。发病以来未曾排便及排气，并且不敢翻身也不敢深呼吸，更不敢使腹部受压。12小时前腹痛加重并出现烦燥不安，憋气，伴体温升高遂来急诊。三年前查体，发现胆囊结石，从无症状，未予治疗。既往无类似腹痛，无
+
+**Reference answer**: 上述症状考虑为急性胰腺炎，为胆源性的（胆管结石、胆管炎、胆道蛔虫、急性胆囊炎），急性胰腺炎同时伴有胆结石的约占60%。临床主要表现为腹痛呈刀割样疼痛、恶心呕吐且呕吐后症状不能缓解、腹膜炎体征、休克、发热、黄疸等。指导意见：1：此病情较严重需要立即急诊去医院就诊，在去医院就诊期间禁食禁水。2：去医院急诊化验血尿淀粉酶即可明确诊断。
+
+**Before (outputs/medical_project/sft/qwen25_7b_lora_10k_v100)**: 根据您提供的病史，患者的症状符合急性胰腺炎的表现。急性胰腺炎是一种严重的消化系统疾病，其主要特征是胰腺组织的炎症反应。胰腺位于上腹部，靠近胃和十二指肠，负责产生消化酶和激素（如胰岛素）。当胰腺发生炎症时，可能会导致剧烈的腹痛、恶心、呕吐等症状。
+
+根据您的描述，患者有突发剧烈上腹痛的症状，伴有腹胀、恶心、呕吐，并且疼痛向背部放射，这些都可能是急性胰腺炎的表现。此外，患者提到之前有胆囊结石的历史，这可能是诱发急性胰腺炎的一个因素，因为胆石有时会阻塞胆管，进而影响到胰腺的正常功能。
+
+处理建议：
+1. 立即就医：鉴于患者的症状较为严重，建议立即前往医院就诊。
+2. 保持卧床休息：避免任何可能增加腹部压力的动作，如翻身或深呼吸。
+3. 饮食控制：在医生指导下进行饮食调整，可能需要暂时禁食以减轻胰腺负担。
+4. 按医嘱使用药物：医生可能会开具止痛药、抗酸药等缓解症状。
+
+风险提示：
+- 急性胰腺炎如果不及时治疗，可能会发展为重症急性胰腺炎，导致多器官功能衰竭，甚至危及生命。
+- 如果疼痛加剧或出现其他严重症状（如高热、黄疸等），应立即寻求医疗帮助。
+
+就医建议：
+- 尽快前往医院就诊，进行相关...
+
+**After (outputs/medical_project/grpo/qwen25_7b_lora_10k_v100_grpo_500)**: 病情分析：根据你的描述，考虑是急性胰腺炎的可能性大，建议到医院做血常规、淀粉酶等检查，明确诊断，积极治疗。指导意见：注意休息，清淡饮食，禁食，胃肠减压，补液，抗感染，抑酸，解痉止痛等治疗。
+
+**Observation**: This automatic case view is for qualitative inspection. It should be reviewed manually before making strong claims about medical correctness.
+
+### Case 4: 急诊医学
+
+**Question**: 胸痛伴冷汗的治疗和预防方法
+
+**Reference answer**: 近20年来，由于加强监护和治疗水平的提高，急性心肌梗死住院病死率明显降低，从30%左右降低至10%以下。但再梗死或多次梗死的患者增多，成为心肌梗死后死亡的主要原因之一。因此除在急性期应积极治疗外，还应加强心肌梗死后的康复和二级预防，以延长患者寿命，提高生活质量和恢复工作能力。心肌梗塞后二级预防包括：1.对患者及其家属进行卫生宣传教育，使患者和家属对本病有所认识，了解各种防治措施的意义，使之减少对疾病的顾虑，在防治中能积极予以配合。2.安排合理膳食，以降低总脂肪、饱和脂肪酸和胆固醇的摄入，体重超重者要限制总热量。经膳食调整3个月后，血脂水平仍明显异常者，可针对血脂异常特点，选用血脂调节剂。3.吸烟者应力劝戒除。吸烟不光是动脉硬化的危险因素，也是心绞痛、心肌梗死和再梗死的危险因素。心肌梗死后恢复的患者，继续吸烟者再...
+
+**Before (outputs/medical_project/sft/qwen25_7b_lora_10k_v100)**: 胸痛伴冷汗的治疗和预防方法：1.心绞痛发作时，立即停止活动，就地休息，舌下含服硝酸甘油0.3～0.6mg，或消心痛10mg，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复方丹参滴丸10粒，或麝香保心丸10粒，或苏冰滴丸10粒，或速效救心丸10粒，或复
+
+**After (outputs/medical_project/grpo/qwen25_7b_lora_10k_v100_grpo_500)**: 胸痛伴冷汗的治疗和预防方法：1.首先，患者要保持良好的生活习惯，避免过度劳累，注意休息，保证充足的睡眠，避免熬夜，养成良好的作息习惯。2.其次，患者要注意饮食清淡，多吃新鲜的水果蔬菜，补充维生素，增强身体抵抗力，避免吃辛辣刺激性的食物，戒烟戒酒。3.最后，患者要定期去医院做检查，观察病情的变化，如果出现胸痛伴冷汗的症状，要及时的进行治疗，以免病情加重。4.胸痛伴冷汗的治疗方法：(1)药物治疗：胸痛伴冷汗的患者可以服用一些活血化瘀的药物，比如丹参滴丸、复方丹参滴丸等，可以改善血液循环，缓解胸痛的症状。(2)手术治疗：对于胸痛伴冷汗的患者，如果是因为冠心病引起的，可以进行冠状动脉搭桥手术，缓解胸痛的症状。5.胸痛伴冷汗的预防方法：(1)患者要注意保暖，避免受凉，尤其是胸部受凉，容易引起胸痛的症状。(2)患者要注意饮食清淡，多吃新鲜的水果蔬菜，补充维生素，增强身体抵抗力，避免吃辛辣刺激性的食物，戒烟戒酒。(3)患者要注意休息，避免过度劳累，保持良好的作息习惯，避免熬夜。
+
+**Observation**: This automatic case view is for qualitative inspection. It should be reviewed manually before making strong claims about medical correctness.
+
+### Case 5: 急诊医学
+
+**Question**: 胸痛鉴别诊断
+
+**Reference answer**: 胸痛的鉴别诊断1、诊断胸痛是急诊室常见的患者就诊原因之一,病因复杂,病情的严重程度相差很大。如延误病情,如AMI、主动脉夹层动脉瘤等,可造成患者死亡。胸痛症状可以从病史、临床症状、体格检查、简单的化验结果都可以进行鉴别诊断。2、鉴别高危胸痛患者:在各种胸痛中需要格外关注并迅速判断的是高危的胸痛患者,包括急性冠脉综合征、主动脉夹层、肺栓塞和张力性气胸等患者。因为这4个疾病,一旦误诊,往往是致命的。任何胸痛,都必须先排除这些可快速致命的疾病。胸痛是什么原因突然胸口痛有可能是胸部肌肉拉伤引起的,需要及时的配合药物进行治疗,服药期间一定要注意多休息,避免过度劳累,平时应该要注意多喝水,避免进行剧烈的运动,更不能做一些重体力的劳动,日常生活中应该要时刻关注身体的健康情况,并且应该要定期到医院进行身体的检查。心脏病会导致患...
+
+**Before (outputs/medical_project/sft/qwen25_7b_lora_10k_v100)**: 胸痛的鉴别诊断：1.心绞痛：多在劳累、情绪激动、饱餐、受寒、心动过速或过缓时发作，疼痛部位多位于胸骨体上段或中段之后，可波及心前区，常放射至左肩、左臂内侧达无名指和小指，或至颈、咽或下颌部，呈压迫感、发闷或紧缩性，偶伴濒死感，持续3～5分钟，休息或舌下含服硝酸甘油后缓解。2.急性心肌梗死：疼痛程度重，持续时间长(超过半小时)，硝酸甘油不能缓解，伴恶心、呕吐、冷汗、面色苍白、烦躁不安、血压下降等。3.主动脉夹层：剧烈撕裂样胸痛，向背部、腹部、腰部放射，伴大汗淋漓、面色苍白、血压升高、脉搏细弱、呼吸困难、心律失常、休克等。4.肺栓塞：突发胸痛，伴呼吸困难、咳嗽、咯血、发热、紫绀、烦躁不安、心悸、晕厥等。5.胸膜炎：胸痛多为刺痛或刀割样痛，深呼吸时加剧，咳嗽时减轻，伴发热、咳嗽、咳痰、气促、胸闷等。6.肋间神经痛：疼痛沿肋间神经分布，呈烧灼样或针刺样痛，夜间加重，可伴有局部皮肤感觉过敏或减退。7.带状疱疹：沿肋间神经分布，呈刀割样、烧灼样或电击样痛，皮疹先出现，然后疼痛，疼痛可持续数周。8.食管炎：胸骨后烧灼样痛，伴吞咽
+
+**After (outputs/medical_project/grpo/qwen25_7b_lora_10k_v100_grpo_500)**: 胸痛的鉴别诊断：1.心绞痛：多为阵发性前胸、胸骨后部疼痛，可放射至心前区与左上肢，常发生于劳动或情绪激动时，持续数分钟，休息或用硝酸酯制剂后消失。2.急性心肌梗死：疼痛剧烈而持久，休息及硝酸酯类药物不能完全缓解，常持续5～6小时以上，甚至长达1～2天，伴有恶心、呕吐、上腹胀痛、心率快、血压低、烦躁不安、出汗等。3.急性主动脉夹层动脉瘤：疼痛剧烈，呈刀割样，难以忍受，沿胸骨后及两侧腋下向背部放射，伴有面色苍白、冷汗、血压升高、心动过速等。4.肺栓塞：突发呼吸困难、胸痛、咯血、咳嗽、发热、烦躁不安、发绀等症状。5.胸膜炎：多有发热、咳嗽、气促、胸痛，深呼吸时加剧。6.肋间神经痛：多见于青壮年，疼痛呈刀割样、灼烧样或针刺样，沿肋间神经分布区域呈带状分布，局部皮肤可出现过敏现象。7.食管炎：多在饭后半小时内出现胸骨后烧灼感、紧缩感或疼痛，可放射至颈部、咽部、耳部或肩部，可伴反酸、嗳气、吞咽困难、恶心、呕吐等症状。8.胃溃疡：多在餐后1小时左右出现上腹部疼痛，可放射至背部、胸部、肩部、颈部、耳部，可伴反酸、嗳气、恶心、呕吐等症状。9.胆囊炎：多在进食油腻食物后出现右上腹
+
+**Observation**: This automatic case view is for qualitative inspection. It should be reviewed manually before making strong claims about medical correctness.
+
+
+## 10. Error Analysis
+
+The current first-version experiment exposes several important failure modes:
+
+- Structure hit rate remains low for SFT/GRPO outputs. The models often provide concise answers that include partial advice but do not explicitly include all required sections such as analysis, suggestion, risk warning, and doctor-visit advice.
+- GRPO 500/1000 improves or preserves safety pass rate but does not yet reliably improve explicit structure compliance.
+- The QA reference similarity differences are small. They should be interpreted as weak reference-overlap signals rather than medical correctness.
+- The C-Eval subset in this report has only 15 samples, so its all-1.0 result is not a strong evidence of medical exam performance.
+- Some safety rules are heuristic. They can miss unsafe recommendations that do not match the current regex patterns and can also over-penalize cautious long responses.
+
+## 11. Limitations
+
+- This project is not a medical diagnosis system.
+- No automatic metric here verifies clinical correctness.
+- Reference similarity is not medical accuracy.
+- Keyword/structure coverage is not medical accuracy.
+- C-Eval test data was not used.
+- Current report uses completed V100 mainline evaluation. A100 SFT and ongoing 30k-GRPO downstream evaluation results should be added later.
+- GRPO reward design is heuristic and should be validated with manual review before making strong claims.
+
+## 12. Resume Project Description
+
+基于 MedicalGPT 框架完成 Qwen2.5-7B-Instruct 医疗问答场景 LoRA 微调与小规模 GRPO 对齐实验。通过医学主题 query 与 C-Eval dev/valid 辅助构建目标域语义中心，从开源医疗 QA 数据中筛选 1w-3w 条 SFT 样本，避免测试集泄漏；设计格式、参考答案语义相似度、安全表达和重复惩罚组成的医学 GRPO reward，在 500-1000 条复杂医疗问答上进行结构化回答对齐。最终在医学 QA held-out、C-Eval 医学 dev/valid、PPL、结构化回答命中率和安全规则通过率等指标上完成 Base/SFT/GRPO 多维评测，并明确区分 reference similarity 与医学准确率。
+
+## Appendix: Pending Updates
+
+- Add downstream evaluation results for A100 SFT 10k/30k if those models are selected for the final mainline.
+- Add the ongoing `qwen25_7b_lora_30k_v100_grpo_1000_a100_1gpu` evaluation after it finishes.
+- Refresh case studies after additional GRPO evaluation and manual review.
+- Consider the v2 hard-sample GRPO workflow to address short-answer and low-structure issues.

@@ -1,0 +1,40 @@
+CUDA_VISIBLE_DEVICES=0 torchrun --nproc_per_node 1 training/supervised_finetuning.py \
+    --model_name_or_path ./models/Qwen2.5-7B-Instruct \
+    --train_file_dir ./data/sft \
+    --validation_file_dir ./data/sft \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
+    --do_train \
+    --do_eval \
+    --use_peft True \
+    --max_train_samples 1000 \
+    --max_eval_samples 50 \
+    --model_max_length 1024 \
+    --num_train_epochs 1 \
+    --learning_rate 2e-5 \
+    --warmup_steps 20 \
+    --weight_decay 0.05 \
+    --logging_strategy steps \
+    --logging_steps 10 \
+    --eval_steps 100 \
+    --eval_strategy steps \
+    --save_steps 500 \
+    --save_strategy steps \
+    --save_total_limit 13 \
+    --gradient_accumulation_steps 8 \
+    --preprocessing_num_workers 4 \
+    --output_dir outputs/outputs-sft-qwen25-7b-test \
+    --ddp_timeout 30000 \
+    --logging_first_step True \
+    --target_modules all \
+    --lora_rank 8 \
+    --lora_alpha 16 \
+    --lora_dropout 0.05 \
+    --torch_dtype bfloat16 \
+    --bf16 \
+    --report_to tensorboard \
+    --ddp_find_unused_parameters False \
+    --gradient_checkpointing True \
+    --tool_format default \
+    --cache_dir ./cache \
+    --flash_attn False

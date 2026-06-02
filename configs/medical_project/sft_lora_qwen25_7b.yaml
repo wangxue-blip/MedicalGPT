@@ -1,0 +1,13 @@
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+method: lora
+model_max_length: 1024
+learning_rate: 2.0e-5
+num_train_epochs: 1
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+torch_dtype: bfloat16
+flash_attn: true
+notes: "A100-oriented baseline config. Use the V100 fallback scripts with fp16 and flash_attn=false."

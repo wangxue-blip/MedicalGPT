@@ -1,0 +1,37 @@
+base_model: Qwen/Qwen2.5-7B-Instruct
+embedding_model: models/bge-small-zh-v1.5
+embedding_device: cpu
+torch_dtype: float16
+models:
+  base:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    peft_path:
+  sft_10k_v100:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    peft_path: outputs/medical_project/sft/qwen25_7b_lora_10k_v100
+  sft_30k_v100:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    peft_path: outputs/medical_project/sft/qwen25_7b_lora_30k_v100
+  grpo_10k_v100_500:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    peft_path: outputs/medical_project/grpo/qwen25_7b_lora_10k_v100_grpo_500
+  grpo_10k_v100_1000:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    peft_path: outputs/medical_project/grpo/qwen25_7b_lora_10k_v100_grpo_1000
+  grpo_30k_v100_500:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    peft_path: outputs/medical_project/grpo/qwen25_7b_lora_30k_v100_grpo_500
+  grpo_30k_v100_1000:
+    model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+    peft_path: outputs/medical_project/grpo/qwen25_7b_lora_30k_v100_grpo_1000
+eval_files:
+  ppl: data_processed/medical_project/eval/medical_longtext_eval.jsonl
+  qa: data_processed/medical_project/eval/medical_qa_eval.jsonl
+  ceval_dev_dir: data_raw/medical_project/ceval_dev
+outputs:
+  metrics_dir: outputs/medical_project/eval
+  summary_csv: outputs/medical_project/eval/summary_metrics.csv
+  summary_json: outputs/medical_project/eval/summary_metrics.json
+notes:
+  - "C-eval test must not be used for filtering or tuning."
+  - "QA similarity is reference similarity, not medical accuracy."
