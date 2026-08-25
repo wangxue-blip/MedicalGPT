@@ -1,0 +1,85 @@
+{
+  "stage": "env_check_3gpu",
+  "started_at": "2026-08-23T23:41:16+08:00",
+  "ended_at": "2026-08-23T23:41:22+08:00",
+  "duration_seconds": 6.604,
+  "exit_code": 0,
+  "cwd": "/home/zzc/wx/MedicalGPT",
+  "command": [
+    "bash",
+    "scripts/medical_project/run_00_env_check.sh"
+  ],
+  "command_shell": "bash scripts/medical_project/run_00_env_check.sh",
+  "cuda_visible_devices": "0,1,2",
+  "gpu_before": {
+    "gpus": [
+      {
+        "index": 0,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 987,
+        "memory_free_mib": 44532,
+        "utilization_percent": 0
+      },
+      {
+        "index": 1,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 4,
+        "memory_free_mib": 45515,
+        "utilization_percent": 0
+      },
+      {
+        "index": 2,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 4,
+        "memory_free_mib": 45515,
+        "utilization_percent": 0
+      }
+    ]
+  },
+  "gpu_after": {
+    "gpus": [
+      {
+        "index": 0,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 987,
+        "memory_free_mib": 44532,
+        "utilization_percent": 0
+      },
+      {
+        "index": 1,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 4,
+        "memory_free_mib": 45515,
+        "utilization_percent": 0
+      },
+      {
+        "index": 2,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 4,
+        "memory_free_mib": 45515,
+        "utilization_percent": 0
+      }
+    ]
+  },
+  "gpu_peaks": {
+    "0": {
+      "memory_used_mib": 987,
+      "utilization_percent": 0
+    },
+    "1": {
+      "memory_used_mib": 4,
+      "utilization_percent": 0
+    },
+    "2": {
+      "memory_used_mib": 4,
+      "utilization_percent": 1
+    }
+  },
+  "log_file": "outputs/medical_project/logs/env_check_3gpu.log"
+}

@@ -1,0 +1,367 @@
+stage=sft_1k_1gpu_retry1
+started_at=2026-08-24T23:44:18+08:00
+cwd=/home/zzc/wx/MedicalGPT
+CUDA_VISIBLE_DEVICES=0
+command=/home/zzc/miniconda3/envs/lora/bin/torchrun --standalone --nnodes 1 --nproc_per_node 1 training/supervised_finetuning.py --model_name_or_path models/Qwen2.5-7B-Instruct --device_map none --train_file_dir data_processed/medical_project/sft/sharegpt_1k --validation_file_dir data_processed/medical_project/eval/sharegpt_validation --do_train --do_eval --use_peft True --max_train_samples -1 --max_eval_samples 100 --model_max_length 1024 --num_train_epochs 1 --per_device_train_batch_size 1 --per_device_eval_batch_size 1 --gradient_accumulation_steps 8 --learning_rate 2e-5 --warmup_ratio 0.03 --weight_decay 0.01 --logging_strategy steps --logging_steps 1 --logging_first_step True --eval_strategy epoch --save_strategy epoch --save_total_limit 1 --preprocessing_num_workers 4 --dataloader_num_workers 2 --output_dir outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu --target_modules q_proj,v_proj --lora_rank 8 --lora_alpha 16 --lora_dropout 0.05 --torch_dtype float16 --fp16 --report_to none --gradient_checkpointing True --ddp_find_unused_parameters False --seed 42 --data_seed 42 --include_tokens_per_second True --cache_dir ./cache --flash_attn False
+2026-08-24 23:44:26.458 | INFO     | __main__:main:352 - Model args: ModelArguments(model_name_or_path='models/Qwen2.5-7B-Instruct', load_in_8bit=False, load_in_4bit=False, tokenizer_name_or_path=None, cache_dir='./cache', model_revision='main', hf_hub_token=None, use_fast_tokenizer=False, torch_dtype='float16', device_map='none', trust_remote_code=True, rope_scaling=None, flash_attn=False, shift_attn=False, neft_alpha=0)
+2026-08-24 23:44:26.459 | INFO     | __main__:main:353 - Data args: DataArguments(dataset_name=None, dataset_config_name=None, train_file_dir='data_processed/medical_project/sft/sharegpt_1k', validation_file_dir='data_processed/medical_project/eval/sharegpt_validation', max_train_samples=-1, max_eval_samples=100, ignore_pad_token_for_loss=True, overwrite_cache=False, validation_split_percentage=1, preprocessing_num_workers=4)
+2026-08-24 23:44:26.460 | INFO     | __main__:main:354 - Training args: Seq2SeqTrainingArguments(
+_n_gpu=1,
+accelerator_config={'split_batches': False, 'dispatch_batches': None, 'even_batches': True, 'use_seedable_sampler': True, 'non_blocking': False, 'gradient_accumulation_kwargs': None, 'use_configured_state': False},
+adafactor=False,
+adam_beta1=0.9,
+adam_beta2=0.999,
+adam_epsilon=1e-08,
+auto_find_batch_size=False,
+average_tokens_across_devices=True,
+batch_eval_metrics=False,
+bf16=False,
+bf16_full_eval=False,
+data_seed=42,
+dataloader_drop_last=False,
+dataloader_num_workers=2,
+dataloader_persistent_workers=False,
+dataloader_pin_memory=True,
+dataloader_prefetch_factor=None,
+ddp_backend=None,
+ddp_broadcast_buffers=None,
+ddp_bucket_cap_mb=None,
+ddp_find_unused_parameters=False,
+ddp_timeout=1800,
+debug=[],
+deepspeed=None,
+disable_tqdm=False,
+do_eval=True,
+do_predict=False,
+do_train=True,
+eval_accumulation_steps=None,
+eval_delay=0,
+eval_do_concat_batches=True,
+eval_on_start=False,
+eval_steps=None,
+eval_strategy=IntervalStrategy.EPOCH,
+eval_use_gather_object=False,
+fp16=True,
+fp16_backend=auto,
+fp16_full_eval=False,
+fp16_opt_level=O1,
+fsdp=[],
+fsdp_config={'min_num_params': 0, 'xla': False, 'xla_fsdp_v2': False, 'xla_fsdp_grad_ckpt': False},
+fsdp_min_num_params=0,
+fsdp_transformer_layer_cls_to_wrap=None,
+full_determinism=False,
+generation_config=None,
+generation_max_length=None,
+generation_num_beams=None,
+gradient_accumulation_steps=8,
+gradient_checkpointing=True,
+gradient_checkpointing_kwargs=None,
+greater_is_better=None,
+group_by_length=False,
+half_precision_backend=auto,
+hub_always_push=False,
+hub_model_id=None,
+hub_private_repo=None,
+hub_revision=None,
+hub_strategy=HubStrategy.EVERY_SAVE,
+hub_token=<HUB_TOKEN>,
+ignore_data_skip=False,
+include_for_metrics=[],
+include_inputs_for_metrics=False,
+include_num_input_tokens_seen=no,
+include_tokens_per_second=True,
+jit_mode_eval=False,
+label_names=None,
+label_smoothing_factor=0.0,
+learning_rate=2e-05,
+length_column_name=length,
+liger_kernel_config=None,
+load_best_model_at_end=False,
+local_rank=0,
+log_level=passive,
+log_level_replica=warning,
+log_on_each_node=True,
+logging_dir=outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu/runs/Aug24_23-44-25_user,
+logging_first_step=True,
+logging_nan_inf_filter=True,
+logging_steps=1.0,
+logging_strategy=IntervalStrategy.STEPS,
+lr_scheduler_kwargs=None,
+lr_scheduler_type=SchedulerType.LINEAR,
+max_grad_norm=1.0,
+max_steps=-1,
+metric_for_best_model=None,
+mp_parameters=,
+neftune_noise_alpha=None,
+no_cuda=False,
+num_train_epochs=1.0,
+optim=OptimizerNames.ADAMW_TORCH_FUSED,
+optim_args=None,
+optim_target_modules=None,
+output_dir=outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu,
+overwrite_output_dir=False,
+parallelism_config=None,
+past_index=-1,
+per_device_eval_batch_size=1,
+per_device_train_batch_size=1,
+predict_with_generate=False,
+prediction_loss_only=False,
+project=huggingface,
+push_to_hub=False,
+push_to_hub_model_id=None,
+push_to_hub_organization=None,
+push_to_hub_token=<PUSH_TO_HUB_TOKEN>,
+ray_scope=last,
+remove_unused_columns=True,
+report_to=[],
+restore_callback_states_from_checkpoint=False,
+resume_from_checkpoint=None,
+run_name=None,
+save_on_each_node=False,
+save_only_model=False,
+save_safetensors=True,
+save_steps=500,
+save_strategy=SaveStrategy.EPOCH,
+save_total_limit=1,
+seed=42,
+skip_memory_metrics=True,
+sortish_sampler=False,
+tf32=None,
+torch_compile=False,
+torch_compile_backend=None,
+torch_compile_mode=None,
+torch_empty_cache_steps=None,
+torchdynamo=None,
+tpu_metrics_debug=False,
+tpu_num_cores=None,
+trackio_space_id=trackio,
+use_cpu=False,
+use_legacy_prediction_loop=False,
+use_liger_kernel=False,
+use_mps_device=False,
+warmup_ratio=0.03,
+warmup_steps=0,
+weight_decay=0.01,
+)
+2026-08-24 23:44:26.460 | INFO     | __main__:main:355 - Script args: ScriptArguments(use_peft=True, train_on_inputs=False, target_modules='q_proj,v_proj', lora_rank=8, lora_dropout=0.05, lora_alpha=16.0, modules_to_save=None, peft_path=None, qlora=False, model_max_length=1024, template_name=None, tool_format=None)
+2026-08-24 23:44:26.461 | INFO     | __main__:main:356 - Process rank: 0, device: cuda:0, n_gpu: 1 distributed training: True, 16-bits training: True
+2026-08-24 23:44:26.691 | INFO     | __main__:main:387 - Add bos_token: <|im_end|>, bos_token_id: 151645
+2026-08-24 23:44:26.691 | DEBUG    | __main__:main:394 - Tokenizer: Qwen2Tokenizer(name_or_path='models/Qwen2.5-7B-Instruct', vocab_size=151643, model_max_length=131072, is_fast=False, padding_side='right', truncation_side='right', special_tokens={'bos_token': '<|im_end|>', 'eos_token': '<|im_end|>', 'pad_token': '<|endoftext|>', 'additional_special_tokens': ['<|im_start|>', '<|im_end|>', '<|object_ref_start|>', '<|object_ref_end|>', '<|box_start|>', '<|box_end|>', '<|quad_start|>', '<|quad_end|>', '<|vision_start|>', '<|vision_end|>', '<|vision_pad|>', '<|image_pad|>', '<|video_pad|>']}, clean_up_tokenization_spaces=False, added_tokens_decoder={
+	151643: AddedToken("<|endoftext|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151644: AddedToken("<|im_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151645: AddedToken("<|im_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151646: AddedToken("<|object_ref_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151647: AddedToken("<|object_ref_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151648: AddedToken("<|box_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151649: AddedToken("<|box_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151650: AddedToken("<|quad_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151651: AddedToken("<|quad_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151652: AddedToken("<|vision_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151653: AddedToken("<|vision_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151654: AddedToken("<|vision_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151655: AddedToken("<|image_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151656: AddedToken("<|video_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151657: AddedToken("<tool_call>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151658: AddedToken("</tool_call>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151659: AddedToken("<|fim_prefix|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151660: AddedToken("<|fim_middle|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151661: AddedToken("<|fim_suffix|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151662: AddedToken("<|fim_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151663: AddedToken("<|repo_name|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151664: AddedToken("<|file_sep|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+}
+)
+2026-08-24 23:44:26.692 | INFO     | __main__:main:421 - train files: ['data_processed/medical_project/sft/sharegpt_1k/medical_sft.jsonl']
+2026-08-24 23:44:26.692 | INFO     | __main__:main:425 - eval files: ['data_processed/medical_project/eval/sharegpt_validation/medical_validation.jsonl']
+2026-08-24 23:44:28.239 | INFO     | __main__:main:437 - Raw datasets: DatasetDict({
+    train: Dataset({
+        features: ['conversations', 'metadata'],
+        num_rows: 1000
+    })
+    validation: Dataset({
+        features: ['conversations', 'metadata'],
+        num_rows: 500
+    })
+})
+2026-08-24 23:44:28.242 | DEBUG    | __main__:main:595 - Example train_dataset[0]: {'conversations': [{'from': 'human', 'value': '请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。\n\n甲状腺功能低下怎么治疗，没有特别症状'}, {'from': 'gpt', 'value': '状腺机能减退症简称甲减，是由多种原因引起的甲状腺激素合成、分泌或生物效应不足所致的一种全身代谢减低综合征。其病理特征是粘多糖等在组织和皮肤中堆积，严重者表现为粘液性水肿。甲减治疗比较麻烦，不容易治疗，一般以补充体外甲状腺素为主，可以用优甲乐治疗'}], 'metadata': {'id': 'sample_298271', 'score': 0.68552184, 'matched_category': '慢病管理', 'matched_query': '甲状腺功能异常、甲亢甲减症状和化验复查建议', 'source_format': 'medical_project_filtered_sft'}}
+2026-08-24 23:44:31.010 | DEBUG    | __main__:main:612 - Num train_samples: 1000
+2026-08-24 23:44:31.010 | DEBUG    | __main__:main:613 - Tokenized training example:
+2026-08-24 23:44:31.011 | DEBUG    | __main__:main:614 - Decode input_ids[0]:
+<|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+<|im_start|>user
+请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。
+
+甲状腺功能低下怎么治疗，没有特别症状<|im_end|>
+<|im_start|>assistant
+状腺机能减退症简称甲减，是由多种原因引起的甲状腺激素合成、分泌或生物效应不足所致的一种全身代谢减低综合征。其病理特征是粘多糖等在组织和皮肤中堆积，严重者表现为粘液性水肿。甲减治疗比较麻烦，不容易治疗，一般以补充体外甲状腺素为主，可以用优甲乐治疗<|im_end|>
+2026-08-24 23:44:31.012 | DEBUG    | __main__:main:617 - Decode labels[0]:
+<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|>状腺机能减退症简称甲减，是由多种原因引起的甲状腺激素合成、分泌或生物效应不足所致的一种全身代谢减低综合征。其病理特征是粘多糖等在组织和皮肤中堆积，严重者表现为粘液性水肿。甲减治疗比较麻烦，不容易治疗，一般以补充体外甲状腺素为主，可以用优甲乐治疗<|im_end|>
+2026-08-24 23:44:31.014 | DEBUG    | __main__:main:631 - Num eval_samples: 100
+2026-08-24 23:44:31.014 | DEBUG    | __main__:main:635 - Example eval_dataset[0]: {'conversations': [{'from': 'human', 'value': '请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。\n\n血热的临床表现是什么?'}, {'from': 'gpt', 'value': '初发或复发病不久。皮疹发展迅速，呈点滴状、钱币状或混合状。常见丘疹、斑丘疹、大小不等的斑片，潮红、鲜红或深红色。散布于体表各处或几处，以躯干、四肢多见，亦可先从头面开始，逐渐发展至全身。新皮疹不断出现，表面覆有银白色鳞屑，干燥易脱落，剥刮后有点状出血。可有同形反应;伴瘙痒、心烦口渴。大便秘结、小便短黄，舌质红赤，苔薄黄或根部黄厚，脉弦滑或滑数。血热炽盛病机，主要表现在如下四个面：一、热象：血热多属阳盛则热之实性、热性病机和病证、并表现出热象。二、血行加速：血得热则行，可使血流加速，且使脉道扩张，络脉充血，故可见面红目赤，舌色深红（即舌绛）等症。三、动血：在血行加速与脉道扩张的基础上，血分有热，可灼伤脉络，引起出血，称为“热迫血妄行”，或称动血。四、扰乱心神：血热炽盛则扰动心神，心主血脉而藏神，血脉与心相通，故血热则使心神不安，而见心烦，或躁扰发狂等症。'}], 'metadata': {'id': 'sample_000001', 'score': None, 'matched_category': None, 'matched_query': None, 'source_format': 'medical_project_filtered_sft'}}
+2026-08-24 23:44:33.398 | DEBUG    | __main__:main:645 - Num eval_samples: 100
+2026-08-24 23:44:33.398 | DEBUG    | __main__:main:646 - Tokenized eval example:
+2026-08-24 23:44:33.400 | DEBUG    | __main__:main:647 - <|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+<|im_start|>user
+请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。
+
+血热的临床表现是什么?<|im_end|>
+<|im_start|>assistant
+初发或复发病不久。皮疹发展迅速，呈点滴状、钱币状或混合状。常见丘疹、斑丘疹、大小不等的斑片，潮红、鲜红或深红色。散布于体表各处或几处，以躯干、四肢多见，亦可先从头面开始，逐渐发展至全身。新皮疹不断出现，表面覆有银白色鳞屑，干燥易脱落，剥刮后有点状出血。可有同形反应;伴瘙痒、心烦口渴。大便秘结、小便短黄，舌质红赤，苔薄黄或根部黄厚，脉弦滑或滑数。血热炽盛病机，主要表现在如下四个面：一、热象：血热多属阳盛则热之实性、热性病机和病证、并表现出热象。二、血行加速：血得热则行，可使血流加速，且使脉道扩张，络脉充血，故可见面红目赤，舌色深红（即舌绛）等症。三、动血：在血行加速与脉道扩张的基础上，血分有热，可灼伤脉络，引起出血，称为“热迫血妄行”，或称动血。四、扰乱心神：血热炽盛则扰动心神，心主血脉而藏神，血脉与心相通，故血热则使心神不安，而见心烦，或躁扰发狂等症。<|im_end|>
+2026-08-24 23:44:33.403 | INFO     | __main__:main:770 - 🔧 大模型训练配置:
+2026-08-24 23:44:33.403 | INFO     | __main__:main:771 -   model_kwargs: {'config': Qwen2Config {
+  "architectures": [
+    "Qwen2ForCausalLM"
+  ],
+  "attention_dropout": 0.0,
+  "bos_token_id": 151643,
+  "dtype": "bfloat16",
+  "eos_token_id": 151645,
+  "hidden_act": "silu",
+  "hidden_size": 3584,
+  "initializer_range": 0.02,
+  "intermediate_size": 18944,
+  "layer_types": [
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention"
+  ],
+  "max_position_embeddings": 32768,
+  "max_window_layers": 28,
+  "model_type": "qwen2",
+  "num_attention_heads": 28,
+  "num_hidden_layers": 28,
+  "num_key_value_heads": 4,
+  "rms_norm_eps": 1e-06,
+  "rope_scaling": null,
+  "rope_theta": 1000000.0,
+  "sliding_window": null,
+  "tie_word_embeddings": false,
+  "transformers_version": "4.57.5",
+  "use_cache": true,
+  "use_sliding_window": false,
+  "vocab_size": 152064
+}
+, 'torch_dtype': torch.float16, 'trust_remote_code': True, 'quantization_config': None, 'low_cpu_mem_usage': True, 'device_map': None, 'cache_dir': './cache', 'revision': 'main', 'token': None}
+`torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]
+Loading checkpoint shards:  25%|██▌       | 1/4 [00:03<00:11,  3.83s/it]
+Loading checkpoint shards:  50%|█████     | 2/4 [00:07<00:07,  3.82s/it]
+Loading checkpoint shards:  75%|███████▌  | 3/4 [00:12<00:04,  4.18s/it]
+Loading checkpoint shards: 100%|██████████| 4/4 [00:15<00:00,  3.93s/it]
+Loading checkpoint shards: 100%|██████████| 4/4 [00:15<00:00,  3.95s/it]
+2026-08-24 23:44:49.279 | INFO     | __main__:main:778 - ✅ 模型加载完成
+2026-08-24 23:44:49.279 | INFO     | __main__:main:781 - 📊 模型分布情况:
+2026-08-24 23:44:49.281 | INFO     | __main__:main:808 - 📈 参数设备分布:
+2026-08-24 23:44:49.281 | INFO     | __main__:main:812 -   cpu: 339 个参数组, 28.37GB (100.0%)
+2026-08-24 23:44:49.281 | INFO     | __main__:main:816 - 💾 GPU内存使用情况:
+2026-08-24 23:44:49.281 | INFO     | __main__:main:821 -   GPU 0: 已分配=0.0GB, 缓存=0.0GB, 总计=44.5GB
+2026-08-24 23:44:49.281 | INFO     | __main__:main:876 - Fine-tuning method: LoRA(PEFT)
+2026-08-24 23:44:49.282 | INFO     | __main__:main:891 - Init new peft model
+2026-08-24 23:44:49.282 | INFO     | __main__:main:900 - Peft target_modules: ['q_proj', 'v_proj']
+2026-08-24 23:44:49.282 | INFO     | __main__:main:901 - Peft lora_rank: 8
+trainable params: 2,523,136 || all params: 7,618,139,648 || trainable%: 0.0331
+2026-08-24 23:44:49.374 | INFO     | __main__:main:923 - Gradient checkpointing enabled.
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/home/zzc/wx/MedicalGPT/training/supervised_finetuning.py", line 1003, in <module>
+[rank0]:     main()
+[rank0]:   File "/home/zzc/wx/MedicalGPT/training/supervised_finetuning.py", line 940, in main
+[rank0]:     trainer = SavePeftModelTrainer(
+[rank0]:               ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+[rank0]:     return func(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/transformers/trainer.py", line 623, in __init__
+[rank0]:     unwrapped_model = self.accelerator.unwrap_model(model)
+[rank0]:                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/accelerate/accelerator.py", line 3134, in unwrap_model
+[rank0]:     return extract_model_from_parallel(model, keep_fp32_wrapper, keep_torch_compile)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/accelerate/utils/other.py", line 251, in extract_model_from_parallel
+[rank0]:     from deepspeed import DeepSpeedEngine
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/deepspeed/__init__.py", line 25, in <module>
+[rank0]:     from . import ops
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/deepspeed/ops/__init__.py", line 15, in <module>
+[rank0]:     from ..git_version_info import compatible_ops as __compatible_ops__
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/deepspeed/git_version_info.py", line 29, in <module>
+[rank0]:     op_compatible = builder.is_compatible()
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/deepspeed/ops/op_builder/fp_quantizer.py", line 35, in is_compatible
+[rank0]:     sys_cuda_major, _ = installed_cuda_version()
+[rank0]:                         ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/deepspeed/ops/op_builder/builder.py", line 53, in installed_cuda_version
+[rank0]:     output = subprocess.check_output([cuda_home + "/bin/nvcc", "-V"], universal_newlines=True)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/subprocess.py", line 466, in check_output
+[rank0]:     return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/subprocess.py", line 548, in run
+[rank0]:     with Popen(*popenargs, **kwargs) as process:
+[rank0]:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/subprocess.py", line 1026, in __init__
+[rank0]:     self._execute_child(args, executable, preexec_fn, close_fds,
+[rank0]:   File "/home/zzc/miniconda3/envs/lora/lib/python3.11/subprocess.py", line 1955, in _execute_child
+[rank0]:     raise child_exception_type(errno_num, err_msg, err_filename)
+[rank0]: FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/cuda-12.6/bin/nvcc'
+[rank0]:[W824 23:44:54.874522883 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+E0824 23:44:55.171000 1505961 site-packages/torch/distributed/elastic/multiprocessing/api.py:984] failed (exitcode: 1) local_rank: 0 (pid: 1506162) of binary: /home/zzc/miniconda3/envs/lora/bin/python3.11
+Traceback (most recent call last):
+  File "/home/zzc/miniconda3/envs/lora/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 362, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/torch/distributed/run.py", line 991, in main
+    run(args)
+  File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/torch/distributed/run.py", line 982, in run
+    elastic_launch(
+  File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 170, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 317, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+training/supervised_finetuning.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-08-24_23:44:55
+  host      : user
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 1506162)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

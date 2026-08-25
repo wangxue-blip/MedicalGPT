@@ -1,0 +1,60 @@
+{
+  "python": "3.11.15",
+  "python_executable": "CPython",
+  "torch": "2.10.0+cu128",
+  "cuda_available": true,
+  "cuda_version": "12.8",
+  "gpu_count": 3,
+  "gpus": [
+    {
+      "index": 0,
+      "name": "NVIDIA A40",
+      "total_memory_gb": 44.45
+    },
+    {
+      "index": 1,
+      "name": "NVIDIA A40",
+      "total_memory_gb": 44.45
+    },
+    {
+      "index": 2,
+      "name": "NVIDIA A40",
+      "total_memory_gb": 44.45
+    }
+  ],
+  "transformers": {
+    "installed": true,
+    "version": "4.57.5",
+    "error": null
+  },
+  "peft": {
+    "installed": true,
+    "version": "0.18.1",
+    "error": null
+  },
+  "trl": {
+    "installed": true,
+    "version": "0.24.0",
+    "error": null
+  },
+  "datasets": {
+    "installed": true,
+    "version": "4.0.0",
+    "error": null
+  },
+  "sentence_transformers": {
+    "installed": false,
+    "version": null,
+    "error": "No module named 'sentence_transformers'"
+  },
+  "faiss": {
+    "installed": false,
+    "version": null,
+    "error": "No module named 'faiss'"
+  },
+  "bitsandbytes": {
+    "installed": false,
+    "version": null,
+    "error": "No module named 'bitsandbytes'"
+  }
+}

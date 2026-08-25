@@ -1,0 +1,10 @@
+stage=ddp_check_3gpu
+started_at=2026-08-24T23:32:14+08:00
+cwd=/home/zzc/wx/MedicalGPT
+CUDA_VISIBLE_DEVICES=2,3
+command=/home/zzc/miniconda3/envs/lora/bin/torchrun --standalone --nnodes 1 --nproc_per_node 2 tools/medical_project/check_ddp.py --expected-world-size 2
+{"host": "user", "rank": 0, "local_rank": 0, "world_size": 2, "cuda_device": 0, "gpu_name": "NVIDIA A40", "all_reduce_sum": 3.0, "status": "ok"}
+{"host": "user", "rank": 1, "local_rank": 1, "world_size": 2, "cuda_device": 1, "gpu_name": "NVIDIA A40", "all_reduce_sum": 3.0, "status": "ok"}
+/home/zzc/miniconda3/envs/lora/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+DDP_CHECK_PASSED

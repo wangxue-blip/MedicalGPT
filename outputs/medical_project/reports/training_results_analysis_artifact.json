@@ -1,0 +1,350 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "MedicalGPT 训练结果分析",
+    "description": "Qwen2.5-7B 医疗 LoRA SFT 与 GRPO 实验的结果诊断。",
+    "generatedAt": "2026-08-25T16:30:00Z",
+    "charts": [
+      {
+        "id": "sft_perplexity",
+        "title": "SFT 验证集困惑度",
+        "subtitle": "固定 100 条医疗验证样本；数值越低越好。",
+        "type": "bar",
+        "dataset": "sft_runs",
+        "sourceId": "sft_results",
+        "encodings": {
+          "x": { "field": "run", "type": "ordinal", "label": "训练配置" },
+          "y": { "field": "perplexity", "type": "quantitative", "label": "困惑度" },
+          "tooltip": [
+            { "field": "train_samples", "type": "quantitative", "label": "训练样本", "format": "number" },
+            { "field": "eval_loss", "type": "quantitative", "label": "验证损失", "format": "number" },
+            { "field": "runtime_minutes", "type": "quantitative", "label": "训练分钟", "format": "number" }
+          ]
+        },
+        "yAxisTitle": "困惑度（越低越好）",
+        "valueFormat": "number",
+        "layout": "full"
+      },
+      {
+        "id": "grpo_clipping",
+        "title": "GRPO 生成被长度上限截断的比例",
+        "subtitle": "四个运行均使用最多 256 个新 token；数值越低越好。",
+        "type": "bar",
+        "dataset": "grpo_runs",
+        "sourceId": "grpo_state",
+        "encodings": {
+          "x": { "field": "run", "type": "ordinal", "label": "GRPO 配置" },
+          "y": { "field": "clipped_rate", "type": "quantitative", "label": "截断比例", "format": "percent" },
+          "tooltip": [
+            { "field": "mean_completion_tokens", "type": "quantitative", "label": "平均生成 token", "format": "number" },
+            { "field": "mean_reward", "type": "quantitative", "label": "平均总奖励", "format": "number" },
+            { "field": "safety_reward", "type": "quantitative", "label": "安全奖励", "format": "number" }
+          ]
+        },
+        "yAxisTitle": "被截断的生成比例",
+        "valueFormat": "percent",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "sft_detail",
+        "title": "SFT 精确结果",
+        "subtitle": "所有运行均训练 1 个 epoch，并在相同的 100 条验证样本上计算。",
+        "dataset": "sft_runs",
+        "sourceId": "sft_results",
+        "defaultSort": { "field": "perplexity", "direction": "asc" },
+        "density": "spacious",
+        "columns": [
+          { "field": "run", "label": "配置", "type": "text" },
+          { "field": "train_samples", "label": "训练样本", "format": "number" },
+          { "field": "targets", "label": "LoRA 目标", "type": "text" },
+          { "field": "eval_loss", "label": "验证损失", "format": "number" },
+          { "field": "perplexity", "label": "困惑度", "format": "number" },
+          { "field": "runtime_minutes", "label": "训练分钟", "format": "number" }
+        ]
+      },
+      {
+        "id": "grpo_detail",
+        "title": "GRPO 训练过程信号",
+        "subtitle": "每行是训练全过程的 step 均值，不是独立测试集结果。",
+        "dataset": "grpo_runs",
+        "sourceId": "grpo_state",
+        "defaultSort": { "field": "mean_reward", "direction": "desc" },
+        "density": "spacious",
+        "columns": [
+          { "field": "run", "label": "配置", "type": "text" },
+          { "field": "mean_reward", "label": "总奖励均值", "format": "number" },
+          { "field": "format_reward", "label": "格式奖励", "format": "number" },
+          { "field": "safety_reward", "label": "安全奖励", "format": "number" },
+          { "field": "similarity_reward", "label": "参考相似度", "format": "number" },
+          { "field": "clipped_rate", "label": "截断比例", "format": "percent" },
+          { "field": "mean_completion_tokens", "label": "平均生成 token", "format": "number" }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "sft_results",
+        "label": "SFT 结果与 LoRA 配置",
+        "path": "outputs/medical_project/reports/sft_evidence.csv",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT run, train_samples, targets, eval_loss, perplexity, runtime_minutes FROM read_csv_auto('outputs/medical_project/reports/sft_evidence.csv')",
+          "description": "读取由四个 SFT 输出目录的 eval_results.json、train_results.json 和 adapter_config.json 聚合出的已核对证据表。",
+          "tables_used": [
+            "outputs/medical_project/reports/sft_evidence.csv",
+            "outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu",
+            "outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu_qvffn",
+            "outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn",
+            "outputs/medical_project/sft/qwen25_7b_lora_30k_1gpu_qvffn"
+          ],
+          "filters": [
+            "训练 1 个 epoch",
+            "验证集限制为同一 100 条样本"
+          ],
+          "metric_definitions": [
+            "验证损失为监督微调的 token-level cross-entropy。",
+            "困惑度为 exp(验证损失)，越低越好。"
+          ]
+        }
+      },
+      {
+        "id": "grpo_state",
+        "label": "GRPO 训练状态与结果",
+        "path": "outputs/medical_project/reports/grpo_evidence.csv",
+        "query": {
+          "engine": "duckdb",
+          "language": "sql",
+          "sql": "SELECT run, mean_reward, format_reward, safety_reward, similarity_reward, clipped_rate, mean_completion_tokens, mean_kl, runtime_minutes FROM read_csv_auto('outputs/medical_project/reports/grpo_evidence.csv')",
+          "description": "读取由四个 GRPO 输出目录的 trainer_state.json 和 train_results.json 聚合出的已核对证据表。",
+          "tables_used": [
+            "outputs/medical_project/reports/grpo_evidence.csv",
+            "outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_500",
+            "outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_1000",
+            "outputs/medical_project/grpo/qwen25_7b_lora_30k_1gpu_qvffn_grpo_500",
+            "outputs/medical_project/grpo/qwen25_7b_lora_30k_1gpu_qvffn_grpo_1000"
+          ],
+          "filters": [
+            "每个运行训练 1 个 epoch",
+            "num_generations=2",
+            "max_completion_length=256"
+          ],
+          "metric_definitions": [
+            "总奖励为 GRPOTrainer 记录的四个奖励函数输出之和。",
+            "截断比例为 completions/clipped_ratio 的 step 均值。"
+          ]
+        }
+      },
+      {
+        "id": "reward_implementation",
+        "label": "医疗 GRPO 奖励实现",
+        "path": "training/medical_grpo_rewards.py",
+        "query": {
+          "engine": "local-files",
+          "language": "python",
+          "description": "医疗格式、参考相似度、安全和长度/重复惩罚函数的实现。",
+          "tables_used": ["training/medical_grpo_rewards.py", "training/grpo_training.py"]
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# MedicalGPT 训练结果分析"
+      },
+      {
+        "id": "executive_summary",
+        "type": "markdown",
+        "body": "## Executive Summary\n\n- **最优 SFT 性价比在 10k Q/V+FFN。** 相比 1k Q/V+FFN，10k 将困惑度从 8.1657 降至 7.7839（-4.68%）；继续到 30k 仅再降 0.0036（-0.046%），但训练时间从 56.3 分钟增加到 162.0 分钟。\n- **扩大 LoRA 到 FFN 的收益大于把数据从 10k 增至 30k。** 在相同 1k 数据上，Q/V+FFN 相比仅 Q/V 的困惑度下降 13.03%。\n- **GRPO 已稳定完成，但尚不能证明最终回答质量提升。** 训练奖励约为 1.20，安全奖励稳定在约 0.84；但 58.6%–67.3% 的生成被 256-token 上限截断，且尚未对 GRPO adapter 运行同口径保留集评估。"
+      },
+      {
+        "id": "metric_definition",
+        "type": "markdown",
+        "sourceId": "sft_results",
+        "body": "## 比较口径\n\nSFT 四组实验均使用 Qwen2.5-7B-Instruct、LoRA r=8 / alpha=16 / dropout=0.05，训练 1 个 epoch，并使用同一 100 条医疗验证样本。这里的困惑度是监督微调的保留集语言建模指标，适合横向比较 SFT；它不是对医疗正确性或安全性的充分评价。"
+      },
+      {
+        "id": "sft_takeaway",
+        "type": "markdown",
+        "sourceId": "sft_results",
+        "body": "## 10k 是当前 SFT 的效率拐点\n\n**Q/V+FFN 的结构选择被验证有效。** 在 1k 数据上，把 LoRA 从 `q_proj,v_proj` 扩展到再包含 `gate_proj,up_proj,down_proj` 后，验证损失由 2.2396 降到 2.0999，困惑度由 9.3896 降到 8.1657。\n\n**数据量从 1k 增至 10k 仍然有明确收益；10k 到 30k 已呈现平台。** 10k 与 30k 的验证损失分别为 2.0521 和 2.0516，差异仅 0.0005。在当前固定 100 条验证集、单随机种子和单 epoch 的设置下，这不足以支持“30k 优于 10k”的可靠结论。"
+      },
+      { "id": "sft_chart", "type": "chart", "chartId": "sft_perplexity", "layout": "full" },
+      { "id": "sft_table", "type": "table", "tableId": "sft_detail", "layout": "full" },
+      {
+        "id": "grpo_takeaway",
+        "type": "markdown",
+        "sourceId": "grpo_state",
+        "body": "## GRPO 过程稳定，但长度截断是最明显的训练信号\n\n**四个 GRPO 运行均完成且没有明显发散。** 平均安全奖励为 0.8435–0.8456，平均 KL 为 0.2712–0.3029；训练过程没有出现大幅 KL 飙升。\n\n**生成长度限制正在影响奖励观测。** 平均生成长度为 207–215 token，同时 58.6%–67.3% 的完成被 256-token 限制截断。格式奖励只有 0.309–0.340，参考相似度只有约 0.049；这说明当前奖励驱动下，完整结构化回答与参考答案重合度仍是主要短板。"
+      },
+      { "id": "grpo_chart", "type": "chart", "chartId": "grpo_clipping", "layout": "full" },
+      { "id": "grpo_table", "type": "table", "tableId": "grpo_detail", "layout": "full" },
+      {
+        "id": "reward_design_note",
+        "type": "markdown",
+        "sourceId": "reward_implementation",
+        "body": "## 奖励实现与设计说明\n\n训练实际传入的是四个独立奖励函数。日志中“总奖励”等于格式奖励、参考相似度、安全奖励和长度/重复项的直接相加；例如某一步的 1.0000 + 0.0183 + 0.6750 + 0.0000 = 1.6933。代码中另有带 0.35/0.30/0.25/-0.10 权重的 `combined_medical_reward`，但本次训练路径没有调用它。若这些权重是预期设计，应在下一轮将其接入或通过 GRPO 的 reward weights 显式配置。"
+      },
+      {
+        "id": "next_steps",
+        "type": "markdown",
+        "body": "## 建议的下一步\n\n1. **先做后训练评测，再选最终 adapter。** 对 SFT 10k、SFT 30k、四个 GRPO adapter 使用完全相同的保留集生成评测，并加入医疗正确性、就医分诊、安全性与结构完整度的人工/规则评分。\n2. **将 10k Q/V+FFN 设为下一轮默认 SFT 起点。** 在有更大且更稳定的验证集或多随机种子证据前，不建议仅为这 0.046% 的 PPL 差异额外支付 30k 的近 3 倍训练时间。\n3. **修正 GRPO 信号质量。** 明确要求四个中文小标题并让格式奖励与模板一致；把最大生成长度提高到 384 或 512 token，同时跟踪截断率；如条件允许，安装并固定中文 embedding 模型替代字符 n-gram 回退相似度。"
+      },
+      {
+        "id": "further_questions",
+        "type": "markdown",
+        "body": "## 仍需验证的问题\n\n- GRPO 500 与 1000 是否比各自的 SFT 起点在真实医疗问答上更安全、更有用？当前日志无法回答。\n- 10k 与 30k 的极小 PPL 差异是饱和，还是 100 条验证集与单一随机种子带来的噪声？\n- 提高生成长度上限后，格式分与参考相似度会改善，还是只会增加冗长输出？"
+      },
+      {
+        "id": "caveats",
+        "type": "markdown",
+        "body": "## Caveats and Assumptions\n\n本报告只使用已保存的训练日志、结果 JSON 和奖励实现。SFT 的验证集仅 100 条，且每种设置只有一个随机种子；因此 10k 与 30k 的微小差异不应过度解读。GRPO 的负训练 loss 是策略优化目标，不能与 SFT 的交叉熵 loss 横向比较，也不能单独证明生成质量提升。"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-08-25T16:30:00Z",
+    "status": "ready",
+    "datasets": {
+      "sft_runs": [
+        {
+          "run": "1k · Q/V",
+          "train_samples": 1000,
+          "targets": "q_proj, v_proj",
+          "eval_loss": 2.239599,
+          "perplexity": 9.389567,
+          "runtime_minutes": 4.4054
+        },
+        {
+          "run": "1k · Q/V+FFN",
+          "train_samples": 1000,
+          "targets": "Q/V + gate/up/down",
+          "eval_loss": 2.099939,
+          "perplexity": 8.165671,
+          "runtime_minutes": 5.7438
+        },
+        {
+          "run": "10k · Q/V+FFN",
+          "train_samples": 10000,
+          "targets": "Q/V + gate/up/down",
+          "eval_loss": 2.052052,
+          "perplexity": 7.783857,
+          "runtime_minutes": 56.2545
+        },
+        {
+          "run": "30k · Q/V+FFN",
+          "train_samples": 30000,
+          "targets": "Q/V + gate/up/down",
+          "eval_loss": 2.051589,
+          "perplexity": 7.780254,
+          "runtime_minutes": 161.9848
+        }
+      ],
+      "grpo_runs": [
+        {
+          "run": "10k SFT → GRPO 500",
+          "mean_reward": 1.211408,
+          "format_reward": 0.324917,
+          "safety_reward": 0.84353,
+          "similarity_reward": 0.049391,
+          "clipped_rate": 0.613,
+          "mean_completion_tokens": 211.185,
+          "mean_kl": 0.271208,
+          "runtime_minutes": 106.6116
+        },
+        {
+          "run": "10k SFT → GRPO 1000",
+          "mean_reward": 1.214056,
+          "format_reward": 0.327375,
+          "safety_reward": 0.843905,
+          "similarity_reward": 0.048869,
+          "clipped_rate": 0.5855,
+          "mean_completion_tokens": 207.427,
+          "mean_kl": 0.28583,
+          "runtime_minutes": 209.5466
+        },
+        {
+          "run": "30k SFT → GRPO 500",
+          "mean_reward": 1.195832,
+          "format_reward": 0.309083,
+          "safety_reward": 0.84409,
+          "similarity_reward": 0.049452,
+          "clipped_rate": 0.673,
+          "mean_completion_tokens": 215.363,
+          "mean_kl": 0.296178,
+          "runtime_minutes": 105.2506
+        },
+        {
+          "run": "30k SFT → GRPO 1000",
+          "mean_reward": 1.228238,
+          "format_reward": 0.340292,
+          "safety_reward": 0.845585,
+          "similarity_reward": 0.049527,
+          "clipped_rate": 0.6305,
+          "mean_completion_tokens": 208.054,
+          "mean_kl": 0.30291,
+          "runtime_minutes": 209.5874
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "sft_results",
+      "label": "SFT 结果与 LoRA 配置",
+      "path": "outputs/medical_project/reports/sft_evidence.csv",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT run, train_samples, targets, eval_loss, perplexity, runtime_minutes FROM read_csv_auto('outputs/medical_project/reports/sft_evidence.csv')",
+        "description": "读取由四个 SFT 输出目录的 eval_results.json、train_results.json 和 adapter_config.json 聚合出的已核对证据表。",
+        "tables_used": [
+          "outputs/medical_project/reports/sft_evidence.csv",
+          "outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu",
+          "outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu_qvffn",
+          "outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn",
+          "outputs/medical_project/sft/qwen25_7b_lora_30k_1gpu_qvffn"
+        ],
+        "filters": ["训练 1 个 epoch", "验证集限制为同一 100 条样本"],
+        "metric_definitions": ["验证损失为监督微调的 token-level cross-entropy。", "困惑度为 exp(验证损失)，越低越好。"]
+      }
+    },
+    {
+      "id": "grpo_state",
+      "label": "GRPO 训练状态与结果",
+      "path": "outputs/medical_project/reports/grpo_evidence.csv",
+      "query": {
+        "engine": "duckdb",
+        "language": "sql",
+        "sql": "SELECT run, mean_reward, format_reward, safety_reward, similarity_reward, clipped_rate, mean_completion_tokens, mean_kl, runtime_minutes FROM read_csv_auto('outputs/medical_project/reports/grpo_evidence.csv')",
+        "description": "读取由四个 GRPO 输出目录的 trainer_state.json 和 train_results.json 聚合出的已核对证据表。",
+        "tables_used": [
+          "outputs/medical_project/reports/grpo_evidence.csv",
+          "outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_500",
+          "outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_1000",
+          "outputs/medical_project/grpo/qwen25_7b_lora_30k_1gpu_qvffn_grpo_500",
+          "outputs/medical_project/grpo/qwen25_7b_lora_30k_1gpu_qvffn_grpo_1000"
+        ],
+        "filters": ["每个运行训练 1 个 epoch", "num_generations=2", "max_completion_length=256"],
+        "metric_definitions": ["总奖励为 GRPOTrainer 记录的四个奖励函数输出之和。", "截断比例为 completions/clipped_ratio 的 step 均值。"]
+      }
+    },
+    {
+      "id": "reward_implementation",
+      "label": "医疗 GRPO 奖励实现",
+      "path": "training/medical_grpo_rewards.py",
+      "query": {
+        "engine": "local-files",
+        "language": "python",
+        "description": "医疗格式、参考相似度、安全和长度/重复惩罚函数的实现。",
+        "tables_used": ["training/medical_grpo_rewards.py", "training/grpo_training.py"]
+      }
+    }
+  ]
+}

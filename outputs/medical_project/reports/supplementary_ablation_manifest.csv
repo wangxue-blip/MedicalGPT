@@ -1,0 +1,14 @@
+eval_loss,eval_samples,factor,label,learning_rate,lora_rank,max_completion_length,max_eval_samples,num_train_epochs,output_dir,reward_mode,seed,sft_start,similarity_model,stage,status,targets,train_loss,train_runtime_seconds,train_samples,treatment
+2.0520520210266113,100,baseline,sft_10k_qvffn_baseline,2e-5,8,,500,1,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn,,42,,,sft,completed,"q_proj,v_proj,gate_proj,up_proj,down_proj",2.0660025408744813,3275.2681,10000,r8_lr2e-5_epoch1_seed42
+,,lora_rank,sft_rank4,2e-5,4,,500,1,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_rank4,,42,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,r4
+,,lora_rank,sft_rank16,2e-5,16,,500,1,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_rank16,,42,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,r16
+,,learning_rate,sft_lr1e5,1e-5,8,,500,1,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_lr1e5,,42,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,1e-5
+,,learning_rate,sft_lr5e5,5e-5,8,,500,1,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_lr5e5,,42,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,5e-5
+,,num_train_epochs,sft_epoch2,2e-5,8,,500,2,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_epoch2,,42,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,2
+,,num_train_epochs,sft_epoch3,2e-5,8,,500,3,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_epoch3,,42,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,3
+,,random_seed,sft_seed17,2e-5,8,,500,1,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_seed17,,17,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,17
+,,random_seed,sft_seed73,2e-5,8,,500,1,outputs/medical_project/sft/qwen25_7b_lora_10k_1gpu_qvffn_seed73,,73,,,sft,pending,"q_proj,v_proj,gate_proj,up_proj,down_proj",,,10000,73
+,,max_completion_length,grpo_len256_separate,,,256,,,outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_500,separate,42,10k Q/V+FFN,none (char n-gram fallback),grpo,completed,,-0.026722634337173076,6396.6959,500,256
+,,max_completion_length,grpo_len384_separate,,,384,,,outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_500_len384_separate,separate,42,10k Q/V+FFN,none (char n-gram fallback),grpo,pending,,,,500,384
+,,max_completion_length,grpo_len512_separate,,,512,,,outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_500_len512_separate,separate,42,10k Q/V+FFN,none (char n-gram fallback),grpo,pending,,,,500,512
+,,reward_mode,grpo_len384_combined,,,384,,,outputs/medical_project/grpo/qwen25_7b_lora_10k_1gpu_qvffn_grpo_500_len384_combined,combined,42,10k Q/V+FFN,none (char n-gram fallback),grpo,pending,,,,500,combined

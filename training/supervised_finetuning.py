@@ -328,6 +328,20 @@ def check_and_optimize_memory():
         logger.info("✅ 启用内存高效注意力机制")
 
 
+def disable_unused_deepspeed_import():
+    """Avoid importing an unusable optional DeepSpeed installation.
+
+    Accelerate's generic unwrap helper imports ``DeepSpeedEngine`` whenever
+    the package is installed, even for standard PyTorch Trainer/DDP runs.
+    This environment has no CUDA compiler toolchain for DeepSpeed extensions,
+    while this script does not use a DeepSpeed config. Patching only that
+    optional branch keeps ordinary Trainer and DDP behavior unchanged.
+    """
+    import accelerate.utils.other as accelerate_other
+
+    accelerate_other.is_deepspeed_available = lambda: False
+
+
 def main():
     parser = HfArgumentParser((ModelArguments, DataArguments, Seq2SeqTrainingArguments, ScriptArguments))
 
@@ -343,6 +357,8 @@ def main():
     # 确保 DeepSpeed 配置正确加载
     if training_args.deepspeed is not None:
         training_args.distributed_state.deepspeed_plugin = None
+    else:
+        disable_unused_deepspeed_import()
 
     # The Trainer will handle distributed training setup
     is_main_process = training_args.local_rank in [-1, 0]
@@ -404,11 +420,12 @@ def main():
             cache_dir=model_args.cache_dir,
         )
         if "validation" not in raw_datasets.keys():
-            shuffled_train_dataset = raw_datasets["train"].shuffle(seed=42)
+            dataset_seed = training_args.data_seed if training_args.data_seed is not None else training_args.seed
+            shuffled_train_dataset = raw_datasets["train"].shuffle(seed=dataset_seed)
             # Split the shuffled train dataset into training and validation sets
             split = shuffled_train_dataset.train_test_split(
                 test_size=data_args.validation_split_percentage / 100,
-                seed=42
+                seed=dataset_seed
             )
             # Assign the split datasets back to raw_datasets
             raw_datasets["train"] = split["train"]
@@ -427,10 +444,11 @@ def main():
         raw_datasets = load_local_json_datasets(data_files, cache_dir=model_args.cache_dir)
         # If no validation data is there, validation_split_percentage will be used to divide the dataset.
         if "validation" not in raw_datasets.keys():
-            shuffled_train_dataset = raw_datasets["train"].shuffle(seed=42)
+            dataset_seed = training_args.data_seed if training_args.data_seed is not None else training_args.seed
+            shuffled_train_dataset = raw_datasets["train"].shuffle(seed=dataset_seed)
             split = shuffled_train_dataset.train_test_split(
                 test_size=float(data_args.validation_split_percentage / 100),
-                seed=42
+                seed=dataset_seed
             )
             raw_datasets["train"] = split["train"]
             raw_datasets["validation"] = split["test"]
@@ -585,7 +603,8 @@ def main():
     if training_args.do_train:
         if "train" not in raw_datasets:
             raise ValueError("--do_train requires a train dataset")
-        train_dataset = raw_datasets['train'].shuffle(seed=42)
+        dataset_seed = training_args.data_seed if training_args.data_seed is not None else training_args.seed
+        train_dataset = raw_datasets['train'].shuffle(seed=dataset_seed)
         max_train_samples = len(train_dataset)
         if data_args.max_train_samples is not None and data_args.max_train_samples > 0:
             max_train_samples = min(len(train_dataset), data_args.max_train_samples)

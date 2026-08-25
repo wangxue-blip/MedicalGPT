@@ -4,6 +4,7 @@
 @description: Train R1 model with GRPO rl algo.
 """
 import os
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Optional
@@ -14,10 +15,37 @@ from loguru import logger
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.integrations import is_deepspeed_zero3_enabled
+
+
+def _use_vllm_requested(argv):
+    """Return whether the CLI explicitly enables vLLM generation."""
+    for index, arg in enumerate(argv):
+        if arg.startswith("--use_vllm="):
+            return arg.split("=", 1)[1].lower() in {"1", "true", "yes", "y"}
+        if arg == "--use_vllm":
+            if index + 1 < len(argv) and not argv[index + 1].startswith("--"):
+                return argv[index + 1].lower() in {"1", "true", "yes", "y"}
+            return True
+    return False
+
+
+def _disable_unused_deepspeed_import():
+    """Keep standard Trainer/DDP runs independent of an optional DeepSpeed install."""
+    import accelerate.utils.other as accelerate_other
+
+    accelerate_other.is_deepspeed_available = lambda: False
+
+
+# Some TRL releases eagerly import any installed vLLM, even when GRPO runs
+# with --use_vllm=False. Avoid importing an incompatible optional vLLM in that
+# mode; enabling vLLM still uses TRL's normal compatibility checks.
+if not _use_vllm_requested(sys.argv[1:]):
+    import trl.import_utils as _trl_import_utils
+
+    _trl_import_utils._vllm_available = False
+
 from trl import GRPOConfig, GRPOTrainer, ModelConfig, TrlParser
 from peft import LoraConfig, TaskType, get_peft_model, PeftModel
-from latex2sympy2_extended import NormalizationConfig
-from math_verify import LatexExtractionConfig, parse, verify
 try:
     from training.medical_grpo_rewards import (
         length_repetition_penalty,
@@ -79,6 +107,14 @@ class ScriptArguments:
         default="cpu",
         metadata={"help": "Device for the medical similarity model, e.g. cpu, cuda:0, or auto."}
     )
+    reward_mode: str = field(
+        default="separate",
+        metadata={"help": "Medical reward composition: separate (legacy direct sum) or combined (weighted composite)."},
+    )
+    dataset_seed: int = field(
+        default=42,
+        metadata={"help": "Seed used to shuffle/select the local GRPO data before training."},
+    )
 
 
 def normalize_text(text):
@@ -102,6 +138,15 @@ def extract_answer(text):
 
 def accuracy_reward(completions, answer, **kwargs):
     """Reward function that checks if the completion is the same as the ground truth."""
+    try:
+        from latex2sympy2_extended import NormalizationConfig
+        from math_verify import LatexExtractionConfig, parse, verify
+    except ImportError as exc:
+        raise RuntimeError(
+            "The default math reward requires latex2sympy2_extended and math_verify. "
+            "Medical GRPO does not require these packages; run it with --reward_type medical."
+        ) from exc
+
     contents = [completion[0]["content"] for completion in completions]
     rewards = []
     for content, sol in zip(contents, answer):
@@ -177,6 +222,8 @@ def build_reference_similarity_reward(similarity_model_name=None, similarity_dev
     """Build a lazy-loading medical reference similarity reward wrapper."""
     model_holder = {"model": None, "failed": False}
     model_name = (similarity_model_name or "").strip()
+    if model_name.lower() in {"none", "false", "off"}:
+        model_name = ""
     device = (similarity_device or "cpu").strip()
 
     def _reward(completions, answer, **kwargs):
@@ -215,11 +262,44 @@ def build_length_penalty_reward():
     return _reward
 
 
+def build_combined_medical_reward(script_args: ScriptArguments):
+    """Build the documented weighted medical reward with the configured similarity backend.
+
+    This deliberately uses the same lazy similarity wrapper as the legacy
+    four-function setup.  It isolates reward composition while keeping the
+    embedding-model/fallback behavior unchanged for the reward ablation.
+    """
+    similarity_reward = build_reference_similarity_reward(
+        script_args.similarity_model, script_args.similarity_device
+    )
+
+    def _reward(completions, answer, **kwargs):
+        fmt = medical_format_reward(completions, **kwargs)
+        similarity = similarity_reward(completions, answer, **kwargs)
+        safety = medical_safety_reward(completions, **kwargs)
+        penalty = length_repetition_penalty(completions, **kwargs)
+        return [
+            max(0.0, min(1.0, 0.35 * f + 0.30 * sim + 0.25 * safe - 0.10 * pen))
+            for f, sim, safe, pen in zip(fmt, similarity, safety, penalty)
+        ]
+
+    _reward.__name__ = "combined_medical_reward"
+    return _reward
+
+
 def get_reward_funcs(script_args: ScriptArguments):
     reward_type = (script_args.reward_type or "default").lower()
     if reward_type == "default":
         return [accuracy_reward, format_reward]
     if reward_type == "medical":
+        reward_mode = (script_args.reward_mode or "separate").lower()
+        if reward_mode == "combined":
+            return [build_combined_medical_reward(script_args)]
+        if reward_mode != "separate":
+            raise ValueError(
+                f"Unsupported medical reward_mode={script_args.reward_mode!r}. "
+                "Use separate or combined."
+            )
         return [
             medical_format_reward,
             build_reference_similarity_reward(script_args.similarity_model, script_args.similarity_device),
@@ -301,7 +381,7 @@ def grpo_train(
         sample_count = min(script_args.train_samples, len(dataset))
         if is_main_process and sample_count < script_args.train_samples:
             logger.warning(f"train_samples={script_args.train_samples} exceeds dataset size={len(dataset)}, using {sample_count} samples.")
-        dataset = dataset.shuffle(seed=42).select(range(sample_count))
+        dataset = dataset.shuffle(seed=script_args.dataset_seed).select(range(sample_count))
 
     reward_funcs = get_reward_funcs(script_args)
     prompt_template = MEDICAL_SYSTEM_PROMPT if (script_args.reward_type or "default").lower() == "medical" else SYSTEM_PROMPT
@@ -395,20 +475,10 @@ def grpo_train(
     )
 
     num_gpus = torch.cuda.device_count()
-    if ddp:
-        model_kwargs["device_map"] = None
-    elif num_gpus > 1:
-        max_memory = {}
-        for i in range(num_gpus):
-            gpu_props = torch.cuda.get_device_properties(i)
-            total_mem = gpu_props.total_memory
-            # 预留20%内存给训练时的梯度、优化器状态等
-            usable_mem = int(total_mem * 0.8)
-            max_memory[i] = f"{usable_mem // (1024 ** 3)}GiB"
-        model_kwargs["max_memory"] = max_memory
-        model_kwargs["device_map"] = "auto"
-    else:
-        model_kwargs["device_map"] = "auto"
+    # Let Trainer/DDP place one complete model on each worker's local GPU.
+    # `device_map="auto"` makes Accelerate treat even a single-GPU model as
+    # model-parallel, which is incompatible with ordinary Trainer/GRPOTrainer.
+    model_kwargs["device_map"] = None
 
     if is_main_process:
         logger.info(f"Using {num_gpus} GPUs")
@@ -576,6 +646,9 @@ def grpo_train(
 def main():
     parser = TrlParser((ModelConfig, ScriptArguments, GRPOConfig))
     model_args, script_args, training_args = parser.parse_args_and_config()
+
+    if getattr(training_args, "deepspeed", None) is None:
+        _disable_unused_deepspeed_import()
 
     # Run the main training loop
     grpo_train(model_args, script_args, training_args)

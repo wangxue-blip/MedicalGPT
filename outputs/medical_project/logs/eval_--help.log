@@ -1,0 +1,18 @@
+stage=eval_--help
+started_at=2026-08-23T23:36:43+08:00
+cwd=/home/zzc/wx/MedicalGPT
+CUDA_VISIBLE_DEVICES=0
+command=python tools/medical_project/eval_model_suite.py --label --help --base_model models/Qwen2.5-7B-Instruct --peft_path '' --output_dir outputs/medical_project/eval_3gpu --max_ppl_samples 200 --max_qa_samples 100 --max_ceval_samples -1 --max_new_tokens 256 --embedding_model none --torch_dtype float16 --device_map auto
+usage: eval_model_suite.py [-h] --label LABEL [--base_model BASE_MODEL]
+                           [--peft_path PEFT_PATH] [--output_dir OUTPUT_DIR]
+                           [--ppl_eval_file PPL_EVAL_FILE]
+                           [--qa_eval_file QA_EVAL_FILE]
+                           [--ceval_dev_dir CEVAL_DEV_DIR]
+                           [--max_ppl_samples MAX_PPL_SAMPLES]
+                           [--max_qa_samples MAX_QA_SAMPLES]
+                           [--max_ceval_samples MAX_CEVAL_SAMPLES]
+                           [--max_new_tokens MAX_NEW_TOKENS]
+                           [--embedding_model EMBEDDING_MODEL]
+                           [--torch_dtype TORCH_DTYPE]
+                           [--device_map DEVICE_MAP]
+eval_model_suite.py: error: argument --label: expected one argument

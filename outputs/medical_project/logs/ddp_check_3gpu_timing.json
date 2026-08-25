@@ -1,0 +1,72 @@
+{
+  "stage": "ddp_check_3gpu",
+  "started_at": "2026-08-24T23:32:14+08:00",
+  "ended_at": "2026-08-24T23:32:21+08:00",
+  "duration_seconds": 6.825,
+  "exit_code": 0,
+  "cwd": "/home/zzc/wx/MedicalGPT",
+  "command": [
+    "/home/zzc/miniconda3/envs/lora/bin/torchrun",
+    "--standalone",
+    "--nnodes",
+    "1",
+    "--nproc_per_node",
+    "2",
+    "tools/medical_project/check_ddp.py",
+    "--expected-world-size",
+    "2"
+  ],
+  "command_shell": "/home/zzc/miniconda3/envs/lora/bin/torchrun --standalone --nnodes 1 --nproc_per_node 2 tools/medical_project/check_ddp.py --expected-world-size 2",
+  "cuda_visible_devices": "2,3",
+  "gpu_before": {
+    "gpus": [
+      {
+        "index": 2,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 1431,
+        "memory_free_mib": 44088,
+        "utilization_percent": 71
+      },
+      {
+        "index": 3,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 1431,
+        "memory_free_mib": 44088,
+        "utilization_percent": 68
+      }
+    ]
+  },
+  "gpu_after": {
+    "gpus": [
+      {
+        "index": 2,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 1431,
+        "memory_free_mib": 44088,
+        "utilization_percent": 67
+      },
+      {
+        "index": 3,
+        "name": "NVIDIA A40",
+        "memory_total_mib": 46068,
+        "memory_used_mib": 1431,
+        "memory_free_mib": 44088,
+        "utilization_percent": 72
+      }
+    ]
+  },
+  "gpu_peaks": {
+    "2": {
+      "memory_used_mib": 1446,
+      "utilization_percent": 72
+    },
+    "3": {
+      "memory_used_mib": 1446,
+      "utilization_percent": 72
+    }
+  },
+  "log_file": "outputs/medical_project/logs/ddp_check_3gpu.log"
+}

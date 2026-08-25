@@ -11,7 +11,9 @@ EOF
   exit 0
 fi
 
-python - <<'PY'
+: "${PYTHON_BIN:=python}"
+
+"${PYTHON_BIN}" - <<'PY'
 import importlib
 import json
 import platform

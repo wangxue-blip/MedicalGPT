@@ -1,0 +1,5 @@
+run,train_samples,targets,eval_loss,perplexity,runtime_minutes
+1k Q/V,1000,"q_proj, v_proj",2.239599,9.389567,4.4054
+1k Q/V+FFN,1000,"Q/V + gate/up/down",2.099939,8.165671,5.7438
+10k Q/V+FFN,10000,"Q/V + gate/up/down",2.052052,7.783857,56.2545
+30k Q/V+FFN,30000,"Q/V + gate/up/down",2.051589,7.780254,161.9848

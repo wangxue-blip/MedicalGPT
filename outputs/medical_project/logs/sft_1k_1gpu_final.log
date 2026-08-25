@@ -1,0 +1,1363 @@
+stage=sft_1k_1gpu_final
+started_at=2026-08-24T23:46:19+08:00
+cwd=/home/zzc/wx/MedicalGPT
+CUDA_VISIBLE_DEVICES=0
+command=/home/zzc/miniconda3/envs/lora/bin/torchrun --standalone --nnodes 1 --nproc_per_node 1 training/supervised_finetuning.py --model_name_or_path models/Qwen2.5-7B-Instruct --device_map none --train_file_dir data_processed/medical_project/sft/sharegpt_1k --validation_file_dir data_processed/medical_project/eval/sharegpt_validation --do_train --do_eval --use_peft True --max_train_samples -1 --max_eval_samples 100 --model_max_length 1024 --num_train_epochs 1 --per_device_train_batch_size 1 --per_device_eval_batch_size 1 --gradient_accumulation_steps 8 --learning_rate 2e-5 --warmup_ratio 0.03 --weight_decay 0.01 --logging_strategy steps --logging_steps 1 --logging_first_step True --eval_strategy epoch --save_strategy epoch --save_total_limit 1 --preprocessing_num_workers 4 --dataloader_num_workers 2 --output_dir outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu --target_modules q_proj,v_proj --lora_rank 8 --lora_alpha 16 --lora_dropout 0.05 --torch_dtype float16 --fp16 --report_to none --gradient_checkpointing True --ddp_find_unused_parameters False --seed 42 --data_seed 42 --include_tokens_per_second True --cache_dir ./cache --flash_attn False
+2026-08-24 23:46:27.457 | INFO     | __main__:main:368 - Model args: ModelArguments(model_name_or_path='models/Qwen2.5-7B-Instruct', load_in_8bit=False, load_in_4bit=False, tokenizer_name_or_path=None, cache_dir='./cache', model_revision='main', hf_hub_token=None, use_fast_tokenizer=False, torch_dtype='float16', device_map='none', trust_remote_code=True, rope_scaling=None, flash_attn=False, shift_attn=False, neft_alpha=0)
+2026-08-24 23:46:27.458 | INFO     | __main__:main:369 - Data args: DataArguments(dataset_name=None, dataset_config_name=None, train_file_dir='data_processed/medical_project/sft/sharegpt_1k', validation_file_dir='data_processed/medical_project/eval/sharegpt_validation', max_train_samples=-1, max_eval_samples=100, ignore_pad_token_for_loss=True, overwrite_cache=False, validation_split_percentage=1, preprocessing_num_workers=4)
+2026-08-24 23:46:27.459 | INFO     | __main__:main:370 - Training args: Seq2SeqTrainingArguments(
+_n_gpu=1,
+accelerator_config={'split_batches': False, 'dispatch_batches': None, 'even_batches': True, 'use_seedable_sampler': True, 'non_blocking': False, 'gradient_accumulation_kwargs': None, 'use_configured_state': False},
+adafactor=False,
+adam_beta1=0.9,
+adam_beta2=0.999,
+adam_epsilon=1e-08,
+auto_find_batch_size=False,
+average_tokens_across_devices=True,
+batch_eval_metrics=False,
+bf16=False,
+bf16_full_eval=False,
+data_seed=42,
+dataloader_drop_last=False,
+dataloader_num_workers=2,
+dataloader_persistent_workers=False,
+dataloader_pin_memory=True,
+dataloader_prefetch_factor=None,
+ddp_backend=None,
+ddp_broadcast_buffers=None,
+ddp_bucket_cap_mb=None,
+ddp_find_unused_parameters=False,
+ddp_timeout=1800,
+debug=[],
+deepspeed=None,
+disable_tqdm=False,
+do_eval=True,
+do_predict=False,
+do_train=True,
+eval_accumulation_steps=None,
+eval_delay=0,
+eval_do_concat_batches=True,
+eval_on_start=False,
+eval_steps=None,
+eval_strategy=IntervalStrategy.EPOCH,
+eval_use_gather_object=False,
+fp16=True,
+fp16_backend=auto,
+fp16_full_eval=False,
+fp16_opt_level=O1,
+fsdp=[],
+fsdp_config={'min_num_params': 0, 'xla': False, 'xla_fsdp_v2': False, 'xla_fsdp_grad_ckpt': False},
+fsdp_min_num_params=0,
+fsdp_transformer_layer_cls_to_wrap=None,
+full_determinism=False,
+generation_config=None,
+generation_max_length=None,
+generation_num_beams=None,
+gradient_accumulation_steps=8,
+gradient_checkpointing=True,
+gradient_checkpointing_kwargs=None,
+greater_is_better=None,
+group_by_length=False,
+half_precision_backend=auto,
+hub_always_push=False,
+hub_model_id=None,
+hub_private_repo=None,
+hub_revision=None,
+hub_strategy=HubStrategy.EVERY_SAVE,
+hub_token=<HUB_TOKEN>,
+ignore_data_skip=False,
+include_for_metrics=[],
+include_inputs_for_metrics=False,
+include_num_input_tokens_seen=no,
+include_tokens_per_second=True,
+jit_mode_eval=False,
+label_names=None,
+label_smoothing_factor=0.0,
+learning_rate=2e-05,
+length_column_name=length,
+liger_kernel_config=None,
+load_best_model_at_end=False,
+local_rank=0,
+log_level=passive,
+log_level_replica=warning,
+log_on_each_node=True,
+logging_dir=outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu/runs/Aug24_23-46-26_user,
+logging_first_step=True,
+logging_nan_inf_filter=True,
+logging_steps=1.0,
+logging_strategy=IntervalStrategy.STEPS,
+lr_scheduler_kwargs=None,
+lr_scheduler_type=SchedulerType.LINEAR,
+max_grad_norm=1.0,
+max_steps=-1,
+metric_for_best_model=None,
+mp_parameters=,
+neftune_noise_alpha=None,
+no_cuda=False,
+num_train_epochs=1.0,
+optim=OptimizerNames.ADAMW_TORCH_FUSED,
+optim_args=None,
+optim_target_modules=None,
+output_dir=outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu,
+overwrite_output_dir=False,
+parallelism_config=None,
+past_index=-1,
+per_device_eval_batch_size=1,
+per_device_train_batch_size=1,
+predict_with_generate=False,
+prediction_loss_only=False,
+project=huggingface,
+push_to_hub=False,
+push_to_hub_model_id=None,
+push_to_hub_organization=None,
+push_to_hub_token=<PUSH_TO_HUB_TOKEN>,
+ray_scope=last,
+remove_unused_columns=True,
+report_to=[],
+restore_callback_states_from_checkpoint=False,
+resume_from_checkpoint=None,
+run_name=None,
+save_on_each_node=False,
+save_only_model=False,
+save_safetensors=True,
+save_steps=500,
+save_strategy=SaveStrategy.EPOCH,
+save_total_limit=1,
+seed=42,
+skip_memory_metrics=True,
+sortish_sampler=False,
+tf32=None,
+torch_compile=False,
+torch_compile_backend=None,
+torch_compile_mode=None,
+torch_empty_cache_steps=None,
+torchdynamo=None,
+tpu_metrics_debug=False,
+tpu_num_cores=None,
+trackio_space_id=trackio,
+use_cpu=False,
+use_legacy_prediction_loop=False,
+use_liger_kernel=False,
+use_mps_device=False,
+warmup_ratio=0.03,
+warmup_steps=0,
+weight_decay=0.01,
+)
+2026-08-24 23:46:27.459 | INFO     | __main__:main:371 - Script args: ScriptArguments(use_peft=True, train_on_inputs=False, target_modules='q_proj,v_proj', lora_rank=8, lora_dropout=0.05, lora_alpha=16.0, modules_to_save=None, peft_path=None, qlora=False, model_max_length=1024, template_name=None, tool_format=None)
+2026-08-24 23:46:27.459 | INFO     | __main__:main:372 - Process rank: 0, device: cuda:0, n_gpu: 1 distributed training: True, 16-bits training: True
+2026-08-24 23:46:27.693 | INFO     | __main__:main:403 - Add bos_token: <|im_end|>, bos_token_id: 151645
+2026-08-24 23:46:27.693 | DEBUG    | __main__:main:410 - Tokenizer: Qwen2Tokenizer(name_or_path='models/Qwen2.5-7B-Instruct', vocab_size=151643, model_max_length=131072, is_fast=False, padding_side='right', truncation_side='right', special_tokens={'bos_token': '<|im_end|>', 'eos_token': '<|im_end|>', 'pad_token': '<|endoftext|>', 'additional_special_tokens': ['<|im_start|>', '<|im_end|>', '<|object_ref_start|>', '<|object_ref_end|>', '<|box_start|>', '<|box_end|>', '<|quad_start|>', '<|quad_end|>', '<|vision_start|>', '<|vision_end|>', '<|vision_pad|>', '<|image_pad|>', '<|video_pad|>']}, clean_up_tokenization_spaces=False, added_tokens_decoder={
+	151643: AddedToken("<|endoftext|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151644: AddedToken("<|im_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151645: AddedToken("<|im_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151646: AddedToken("<|object_ref_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151647: AddedToken("<|object_ref_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151648: AddedToken("<|box_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151649: AddedToken("<|box_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151650: AddedToken("<|quad_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151651: AddedToken("<|quad_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151652: AddedToken("<|vision_start|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151653: AddedToken("<|vision_end|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151654: AddedToken("<|vision_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151655: AddedToken("<|image_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151656: AddedToken("<|video_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=True),
+	151657: AddedToken("<tool_call>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151658: AddedToken("</tool_call>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151659: AddedToken("<|fim_prefix|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151660: AddedToken("<|fim_middle|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151661: AddedToken("<|fim_suffix|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151662: AddedToken("<|fim_pad|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151663: AddedToken("<|repo_name|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+	151664: AddedToken("<|file_sep|>", rstrip=False, lstrip=False, single_word=False, normalized=False, special=False),
+}
+)
+2026-08-24 23:46:27.694 | INFO     | __main__:main:437 - train files: ['data_processed/medical_project/sft/sharegpt_1k/medical_sft.jsonl']
+2026-08-24 23:46:27.694 | INFO     | __main__:main:441 - eval files: ['data_processed/medical_project/eval/sharegpt_validation/medical_validation.jsonl']
+2026-08-24 23:46:29.195 | INFO     | __main__:main:453 - Raw datasets: DatasetDict({
+    train: Dataset({
+        features: ['conversations', 'metadata'],
+        num_rows: 1000
+    })
+    validation: Dataset({
+        features: ['conversations', 'metadata'],
+        num_rows: 500
+    })
+})
+2026-08-24 23:46:29.198 | DEBUG    | __main__:main:611 - Example train_dataset[0]: {'conversations': [{'from': 'human', 'value': '请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。\n\n甲状腺功能低下怎么治疗，没有特别症状'}, {'from': 'gpt', 'value': '状腺机能减退症简称甲减，是由多种原因引起的甲状腺激素合成、分泌或生物效应不足所致的一种全身代谢减低综合征。其病理特征是粘多糖等在组织和皮肤中堆积，严重者表现为粘液性水肿。甲减治疗比较麻烦，不容易治疗，一般以补充体外甲状腺素为主，可以用优甲乐治疗'}], 'metadata': {'id': 'sample_298271', 'score': 0.68552184, 'matched_category': '慢病管理', 'matched_query': '甲状腺功能异常、甲亢甲减症状和化验复查建议', 'source_format': 'medical_project_filtered_sft'}}
+2026-08-24 23:46:31.763 | DEBUG    | __main__:main:628 - Num train_samples: 1000
+2026-08-24 23:46:31.763 | DEBUG    | __main__:main:629 - Tokenized training example:
+2026-08-24 23:46:31.764 | DEBUG    | __main__:main:630 - Decode input_ids[0]:
+<|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+<|im_start|>user
+请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。
+
+甲状腺功能低下怎么治疗，没有特别症状<|im_end|>
+<|im_start|>assistant
+状腺机能减退症简称甲减，是由多种原因引起的甲状腺激素合成、分泌或生物效应不足所致的一种全身代谢减低综合征。其病理特征是粘多糖等在组织和皮肤中堆积，严重者表现为粘液性水肿。甲减治疗比较麻烦，不容易治疗，一般以补充体外甲状腺素为主，可以用优甲乐治疗<|im_end|>
+2026-08-24 23:46:31.765 | DEBUG    | __main__:main:633 - Decode labels[0]:
+<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|>状腺机能减退症简称甲减，是由多种原因引起的甲状腺激素合成、分泌或生物效应不足所致的一种全身代谢减低综合征。其病理特征是粘多糖等在组织和皮肤中堆积，严重者表现为粘液性水肿。甲减治疗比较麻烦，不容易治疗，一般以补充体外甲状腺素为主，可以用优甲乐治疗<|im_end|>
+2026-08-24 23:46:31.767 | DEBUG    | __main__:main:647 - Num eval_samples: 100
+2026-08-24 23:46:31.767 | DEBUG    | __main__:main:651 - Example eval_dataset[0]: {'conversations': [{'from': 'human', 'value': '请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。\n\n血热的临床表现是什么?'}, {'from': 'gpt', 'value': '初发或复发病不久。皮疹发展迅速，呈点滴状、钱币状或混合状。常见丘疹、斑丘疹、大小不等的斑片，潮红、鲜红或深红色。散布于体表各处或几处，以躯干、四肢多见，亦可先从头面开始，逐渐发展至全身。新皮疹不断出现，表面覆有银白色鳞屑，干燥易脱落，剥刮后有点状出血。可有同形反应;伴瘙痒、心烦口渴。大便秘结、小便短黄，舌质红赤，苔薄黄或根部黄厚，脉弦滑或滑数。血热炽盛病机，主要表现在如下四个面：一、热象：血热多属阳盛则热之实性、热性病机和病证、并表现出热象。二、血行加速：血得热则行，可使血流加速，且使脉道扩张，络脉充血，故可见面红目赤，舌色深红（即舌绛）等症。三、动血：在血行加速与脉道扩张的基础上，血分有热，可灼伤脉络，引起出血，称为“热迫血妄行”，或称动血。四、扰乱心神：血热炽盛则扰动心神，心主血脉而藏神，血脉与心相通，故血热则使心神不安，而见心烦，或躁扰发狂等症。'}], 'metadata': {'id': 'sample_000001', 'score': None, 'matched_category': None, 'matched_query': None, 'source_format': 'medical_project_filtered_sft'}}
+2026-08-24 23:46:34.150 | DEBUG    | __main__:main:661 - Num eval_samples: 100
+2026-08-24 23:46:34.150 | DEBUG    | __main__:main:662 - Tokenized eval example:
+2026-08-24 23:46:34.151 | DEBUG    | __main__:main:663 - <|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+<|im_start|>user
+请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。
+
+血热的临床表现是什么?<|im_end|>
+<|im_start|>assistant
+初发或复发病不久。皮疹发展迅速，呈点滴状、钱币状或混合状。常见丘疹、斑丘疹、大小不等的斑片，潮红、鲜红或深红色。散布于体表各处或几处，以躯干、四肢多见，亦可先从头面开始，逐渐发展至全身。新皮疹不断出现，表面覆有银白色鳞屑，干燥易脱落，剥刮后有点状出血。可有同形反应;伴瘙痒、心烦口渴。大便秘结、小便短黄，舌质红赤，苔薄黄或根部黄厚，脉弦滑或滑数。血热炽盛病机，主要表现在如下四个面：一、热象：血热多属阳盛则热之实性、热性病机和病证、并表现出热象。二、血行加速：血得热则行，可使血流加速，且使脉道扩张，络脉充血，故可见面红目赤，舌色深红（即舌绛）等症。三、动血：在血行加速与脉道扩张的基础上，血分有热，可灼伤脉络，引起出血，称为“热迫血妄行”，或称动血。四、扰乱心神：血热炽盛则扰动心神，心主血脉而藏神，血脉与心相通，故血热则使心神不安，而见心烦，或躁扰发狂等症。<|im_end|>
+2026-08-24 23:46:34.154 | INFO     | __main__:main:786 - 🔧 大模型训练配置:
+2026-08-24 23:46:34.155 | INFO     | __main__:main:787 -   model_kwargs: {'config': Qwen2Config {
+  "architectures": [
+    "Qwen2ForCausalLM"
+  ],
+  "attention_dropout": 0.0,
+  "bos_token_id": 151643,
+  "dtype": "bfloat16",
+  "eos_token_id": 151645,
+  "hidden_act": "silu",
+  "hidden_size": 3584,
+  "initializer_range": 0.02,
+  "intermediate_size": 18944,
+  "layer_types": [
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention"
+  ],
+  "max_position_embeddings": 32768,
+  "max_window_layers": 28,
+  "model_type": "qwen2",
+  "num_attention_heads": 28,
+  "num_hidden_layers": 28,
+  "num_key_value_heads": 4,
+  "rms_norm_eps": 1e-06,
+  "rope_scaling": null,
+  "rope_theta": 1000000.0,
+  "sliding_window": null,
+  "tie_word_embeddings": false,
+  "transformers_version": "4.57.5",
+  "use_cache": true,
+  "use_sliding_window": false,
+  "vocab_size": 152064
+}
+, 'torch_dtype': torch.float16, 'trust_remote_code': True, 'quantization_config': None, 'low_cpu_mem_usage': True, 'device_map': None, 'cache_dir': './cache', 'revision': 'main', 'token': None}
+`torch_dtype` is deprecated! Use `dtype` instead!
+
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]
+Loading checkpoint shards:  25%|██▌       | 1/4 [00:03<00:11,  3.77s/it]
+Loading checkpoint shards:  50%|█████     | 2/4 [00:07<00:07,  3.73s/it]
+Loading checkpoint shards:  75%|███████▌  | 3/4 [00:11<00:03,  3.74s/it]
+Loading checkpoint shards: 100%|██████████| 4/4 [00:14<00:00,  3.66s/it]
+Loading checkpoint shards: 100%|██████████| 4/4 [00:14<00:00,  3.69s/it]
+2026-08-24 23:46:49.005 | INFO     | __main__:main:794 - ✅ 模型加载完成
+2026-08-24 23:46:49.005 | INFO     | __main__:main:797 - 📊 模型分布情况:
+2026-08-24 23:46:49.007 | INFO     | __main__:main:824 - 📈 参数设备分布:
+2026-08-24 23:46:49.007 | INFO     | __main__:main:828 -   cpu: 339 个参数组, 28.37GB (100.0%)
+2026-08-24 23:46:49.008 | INFO     | __main__:main:832 - 💾 GPU内存使用情况:
+2026-08-24 23:46:49.008 | INFO     | __main__:main:837 -   GPU 0: 已分配=0.0GB, 缓存=0.0GB, 总计=44.5GB
+2026-08-24 23:46:49.008 | INFO     | __main__:main:892 - Fine-tuning method: LoRA(PEFT)
+2026-08-24 23:46:49.008 | INFO     | __main__:main:907 - Init new peft model
+2026-08-24 23:46:49.009 | INFO     | __main__:main:916 - Peft target_modules: ['q_proj', 'v_proj']
+2026-08-24 23:46:49.009 | INFO     | __main__:main:917 - Peft lora_rank: 8
+trainable params: 2,523,136 || all params: 7,618,139,648 || trainable%: 0.0331
+2026-08-24 23:46:49.104 | INFO     | __main__:main:939 - Gradient checkpointing enabled.
+Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+2026-08-24 23:46:52.160 | INFO     | __main__:main:968 - *** Train ***
+2026-08-24 23:46:52.379 | DEBUG    | __main__:main:970 - Train dataloader example: {'input_ids': tensor([[151644,   8948,    198,   2610,    525,   1207,  16948,     11,   3465,
+            553,  54364,  14817,     13,   1446,    525,    264,  10950,  17847,
+             13, 151645,    198, 151644,    872,    198,  14880,  23031, 106094,
+          33108, 110166, 101898, 100782,   3837, 101153, 105598, 103998, 105262,
+          24968,  29524, 100347,  99508, 114007,  57191, 101368, 108181,   3837,
+         117417, 110166,   3407,  99508, 101317,  99769,   9370, 103202,  99917,
+          11319, 151645,    198, 151644,  77091,    198, 108683,  99508, 101317,
+          99769,     16,   5373, 101304,  57218, 110819,   5122, 109689, 121033,
+         101143, 100439,   3837, 109689, 101335, 102781, 100439,   3837, 109689,
+         101335,  35551, 100439,   3837, 109689, 119386, 101002, 100439,   3837,
+         109689, 100859, 117972,  99478, 100439,   3837, 109689, 100250,  99561,
+          33071, 100859, 100439,   3837,  24592,  24134,  99252,   3837, 109689,
+         113083,  33071, 101317, 101232, 100439,   3837, 101317, 102504, 115623,
+         101561,      7, 121471,  16872,   5373, 100859, 115301,   5373, 102427,
+         102504, 115623, 101561,      8,   1773,     17,   5373,  34794, 102504,
+         108022,  99621, 100451,   5122, 100518,   5373, 101301,  63367, 100859,
+         114222,  99621, 100451,   3837, 100518, 100575,  99621, 100451,   3837,
+          99616, 100718, 100859,  99621, 100451,   3837, 100250, 120471,  33071,
+         101335, 102781, 100439,  99621, 100451,   3837, 110151,  47815,  99616,
+         100859, 114149,   1773,     18,   5373, 110151, 107429,   5122, 116051,
+         110562, 101364,   5373, 101696, 114149,  57191, 100859,  38176, 101232,
+         102890, 114149,   3837, 112019,  33071, 101364, 100575, 114149,     26,
+         101317,  57191, 117334, 116051, 101317, 101232,  33447,  99389, 101561,
+           1773,     19,   5373, 107583, 100318,   5122, 100518, 113217,   3837,
+         101335,  44793,   3837, 101690, 102395,  44793, 107583, 100318,   1773,
+             20,   5373, 113698, 103060,   5122, 100518, 113217, 107583, 100318,
+          57191, 113064, 106045, 115265,  99299,  99389, 101353, 102544,   3837,
+         100636,  99545,  99389, 100250,  99561,   3837,  38953, 100673, 101317,
+         101232, 100439,   5373, 100242,  99316,   1773,     21,   5373, 102890,
+         112140,   5122, 102890, 116154, 101202,   3837,  29524,  63109,  99218,
+         101538, 103255,   5373,  99449, 109689, 107368,  33071,  63109,  31843,
+         101232, 100439,   3837, 103023, 100093, 100265,  99389, 116154, 113310,
+          99299, 100859,  38176, 101232, 109826, 116154, 101202,   3837, 101696,
+         116154, 101202,   5373, 102512, 116154, 101202,  49567,   1773,  99389,
+         116154, 101894,   3837,  29524, 109689,  64689, 113630, 100439,  99595,
+         100859,  38176, 101232, 113630,  99389, 116154, 101894,   1773, 109826,
+         102785, 114149,   3837,  29524, 101317, 101966, 100297,   5373, 101364,
+           5373, 102512,   5373, 101696, 109826, 102785, 114149, 107429,   1773,
+          99981,  51232,  69526, 101160, 109689, 108396, 100439,   3837, 109689,
+         102427, 102504, 100439,   3837, 113064,  99789,  31914, 114149,   3837,
+         113064, 106045, 115265,   3837,  62945,  24156, 111242, 114149,   1773,
+         116298, 101160,     16,   5373, 110151, 116298,  99252,   5122, 109689,
+         113385, 100439,   3837, 109689, 100859,  38176, 101232, 114814,  36885,
+         100439,   3837, 109689, 101320,  33071, 101364, 100439,   5373,  52129,
+          28291,  33071, 101317, 101232, 100439,   3837, 101317,  24300, 101168,
+         102742,   3837, 119520,  99762, 102150, 115722, 100087,  46423,   3837,
+         108633, 109470,   3837, 107218,   3837, 102395,  99586,  99769,   1773,
+             17,   5373,  65676, 110151, 116298,  99252,   5122, 101887, 102398,
+         100578, 100068, 112484,  99299, 101317, 100406,   3837, 101536,  18830,
+         109689, 102749,   3837, 109689, 100277, 101232, 100439,   3837,  63109,
+         113698, 100406,   3837,  63109, 101408, 107583,  99561,   3837, 100887,
+         109826, 116154, 101202,   1773,     18,   5373, 109257, 103661, 112140,
+           5122, 109257, 102277,  49185,  21287,  33071, 100049, 107914, 100439,
+           3837, 109257, 102277,  36885,  71137,   5373, 106045,   5373, 106722,
+           3837, 109257, 102398,  99204, 115025,  57191, 104313,   1773, 151645,
+         151643]], device='cuda:0'), 'attention_mask': tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]], device='cuda:0'), 'labels': tensor([[  -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+           -100,   -100,   -100,   -100,   -100,   -100, 108683,  99508, 101317,
+          99769,     16,   5373, 101304,  57218, 110819,   5122, 109689, 121033,
+         101143, 100439,   3837, 109689, 101335, 102781, 100439,   3837, 109689,
+         101335,  35551, 100439,   3837, 109689, 119386, 101002, 100439,   3837,
+         109689, 100859, 117972,  99478, 100439,   3837, 109689, 100250,  99561,
+          33071, 100859, 100439,   3837,  24592,  24134,  99252,   3837, 109689,
+         113083,  33071, 101317, 101232, 100439,   3837, 101317, 102504, 115623,
+         101561,      7, 121471,  16872,   5373, 100859, 115301,   5373, 102427,
+         102504, 115623, 101561,      8,   1773,     17,   5373,  34794, 102504,
+         108022,  99621, 100451,   5122, 100518,   5373, 101301,  63367, 100859,
+         114222,  99621, 100451,   3837, 100518, 100575,  99621, 100451,   3837,
+          99616, 100718, 100859,  99621, 100451,   3837, 100250, 120471,  33071,
+         101335, 102781, 100439,  99621, 100451,   3837, 110151,  47815,  99616,
+         100859, 114149,   1773,     18,   5373, 110151, 107429,   5122, 116051,
+         110562, 101364,   5373, 101696, 114149,  57191, 100859,  38176, 101232,
+         102890, 114149,   3837, 112019,  33071, 101364, 100575, 114149,     26,
+         101317,  57191, 117334, 116051, 101317, 101232,  33447,  99389, 101561,
+           1773,     19,   5373, 107583, 100318,   5122, 100518, 113217,   3837,
+         101335,  44793,   3837, 101690, 102395,  44793, 107583, 100318,   1773,
+             20,   5373, 113698, 103060,   5122, 100518, 113217, 107583, 100318,
+          57191, 113064, 106045, 115265,  99299,  99389, 101353, 102544,   3837,
+         100636,  99545,  99389, 100250,  99561,   3837,  38953, 100673, 101317,
+         101232, 100439,   5373, 100242,  99316,   1773,     21,   5373, 102890,
+         112140,   5122, 102890, 116154, 101202,   3837,  29524,  63109,  99218,
+         101538, 103255,   5373,  99449, 109689, 107368,  33071,  63109,  31843,
+         101232, 100439,   3837, 103023, 100093, 100265,  99389, 116154, 113310,
+          99299, 100859,  38176, 101232, 109826, 116154, 101202,   3837, 101696,
+         116154, 101202,   5373, 102512, 116154, 101202,  49567,   1773,  99389,
+         116154, 101894,   3837,  29524, 109689,  64689, 113630, 100439,  99595,
+         100859,  38176, 101232, 113630,  99389, 116154, 101894,   1773, 109826,
+         102785, 114149,   3837,  29524, 101317, 101966, 100297,   5373, 101364,
+           5373, 102512,   5373, 101696, 109826, 102785, 114149, 107429,   1773,
+          99981,  51232,  69526, 101160, 109689, 108396, 100439,   3837, 109689,
+         102427, 102504, 100439,   3837, 113064,  99789,  31914, 114149,   3837,
+         113064, 106045, 115265,   3837,  62945,  24156, 111242, 114149,   1773,
+         116298, 101160,     16,   5373, 110151, 116298,  99252,   5122, 109689,
+         113385, 100439,   3837, 109689, 100859,  38176, 101232, 114814,  36885,
+         100439,   3837, 109689, 101320,  33071, 101364, 100439,   5373,  52129,
+          28291,  33071, 101317, 101232, 100439,   3837, 101317,  24300, 101168,
+         102742,   3837, 119520,  99762, 102150, 115722, 100087,  46423,   3837,
+         108633, 109470,   3837, 107218,   3837, 102395,  99586,  99769,   1773,
+             17,   5373,  65676, 110151, 116298,  99252,   5122, 101887, 102398,
+         100578, 100068, 112484,  99299, 101317, 100406,   3837, 101536,  18830,
+         109689, 102749,   3837, 109689, 100277, 101232, 100439,   3837,  63109,
+         113698, 100406,   3837,  63109, 101408, 107583,  99561,   3837, 100887,
+         109826, 116154, 101202,   1773,     18,   5373, 109257, 103661, 112140,
+           5122, 109257, 102277,  49185,  21287,  33071, 100049, 107914, 100439,
+           3837, 109257, 102277,  36885,  71137,   5373, 106045,   5373, 106722,
+           3837, 109257, 102398,  99204, 115025,  57191, 104313,   1773, 151645,
+           -100]], device='cuda:0')}
+2026-08-24 23:46:52.393 | DEBUG    | __main__:main:971 - input_ids:
+[tensor([151644,   8948,    198,   2610,    525,   1207,  16948,     11,   3465,
+           553,  54364,  14817,     13,   1446,    525,    264,  10950,  17847,
+            13, 151645,    198, 151644,    872,    198,  14880,  23031, 106094,
+         33108, 110166, 101898, 100782,   3837, 101153, 105598, 103998, 105262,
+         24968,  29524, 100347,  99508, 114007,  57191, 101368, 108181,   3837,
+        117417, 110166,   3407,  99508, 101317,  99769,   9370, 103202,  99917,
+         11319, 151645,    198, 151644,  77091,    198, 108683,  99508, 101317,
+         99769,     16,   5373, 101304,  57218, 110819,   5122, 109689, 121033,
+        101143, 100439,   3837, 109689, 101335, 102781, 100439,   3837, 109689,
+        101335,  35551, 100439,   3837, 109689, 119386, 101002, 100439,   3837,
+        109689, 100859, 117972,  99478, 100439,   3837, 109689, 100250,  99561,
+         33071, 100859, 100439,   3837,  24592,  24134,  99252,   3837, 109689,
+        113083,  33071, 101317, 101232, 100439,   3837, 101317, 102504, 115623,
+        101561,      7, 121471,  16872,   5373, 100859, 115301,   5373, 102427,
+        102504, 115623, 101561,      8,   1773,     17,   5373,  34794, 102504,
+        108022,  99621, 100451,   5122, 100518,   5373, 101301,  63367, 100859,
+        114222,  99621, 100451,   3837, 100518, 100575,  99621, 100451,   3837,
+         99616, 100718, 100859,  99621, 100451,   3837, 100250, 120471,  33071,
+        101335, 102781, 100439,  99621, 100451,   3837, 110151,  47815,  99616,
+        100859, 114149,   1773,     18,   5373, 110151, 107429,   5122, 116051,
+        110562, 101364,   5373, 101696, 114149,  57191, 100859,  38176, 101232,
+        102890, 114149,   3837, 112019,  33071, 101364, 100575, 114149,     26,
+        101317,  57191, 117334, 116051, 101317, 101232,  33447,  99389, 101561,
+          1773,     19,   5373, 107583, 100318,   5122, 100518, 113217,   3837,
+        101335,  44793,   3837, 101690, 102395,  44793, 107583, 100318,   1773,
+            20,   5373, 113698, 103060,   5122, 100518, 113217, 107583, 100318,
+         57191, 113064, 106045, 115265,  99299,  99389, 101353, 102544,   3837,
+        100636,  99545,  99389, 100250,  99561,   3837,  38953, 100673, 101317,
+        101232, 100439,   5373, 100242,  99316,   1773,     21,   5373, 102890,
+        112140,   5122, 102890, 116154, 101202,   3837,  29524,  63109,  99218,
+        101538, 103255,   5373,  99449, 109689, 107368,  33071,  63109,  31843,
+        101232, 100439,   3837, 103023, 100093, 100265,  99389, 116154, 113310,
+         99299, 100859,  38176, 101232, 109826, 116154, 101202,   3837, 101696,
+        116154, 101202,   5373, 102512, 116154, 101202,  49567,   1773,  99389,
+        116154, 101894,   3837,  29524, 109689,  64689, 113630, 100439,  99595,
+        100859,  38176, 101232, 113630,  99389, 116154, 101894,   1773, 109826,
+        102785, 114149,   3837,  29524, 101317, 101966, 100297,   5373, 101364,
+          5373, 102512,   5373, 101696, 109826, 102785, 114149, 107429,   1773,
+         99981,  51232,  69526, 101160, 109689, 108396, 100439,   3837, 109689,
+        102427, 102504, 100439,   3837, 113064,  99789,  31914, 114149,   3837,
+        113064, 106045, 115265,   3837,  62945,  24156, 111242, 114149,   1773,
+        116298, 101160,     16,   5373, 110151, 116298,  99252,   5122, 109689,
+        113385, 100439,   3837, 109689, 100859,  38176, 101232, 114814,  36885,
+        100439,   3837, 109689, 101320,  33071, 101364, 100439,   5373,  52129,
+         28291,  33071, 101317, 101232, 100439,   3837, 101317,  24300, 101168,
+        102742,   3837, 119520,  99762, 102150, 115722, 100087,  46423,   3837,
+        108633, 109470,   3837, 107218,   3837, 102395,  99586,  99769,   1773,
+            17,   5373,  65676, 110151, 116298,  99252,   5122, 101887, 102398,
+        100578, 100068, 112484,  99299, 101317, 100406,   3837, 101536,  18830,
+        109689, 102749,   3837, 109689, 100277, 101232, 100439,   3837,  63109,
+        113698, 100406,   3837,  63109, 101408, 107583,  99561,   3837, 100887,
+        109826, 116154, 101202,   1773,     18,   5373, 109257, 103661, 112140,
+          5122, 109257, 102277,  49185,  21287,  33071, 100049, 107914, 100439,
+          3837, 109257, 102277,  36885,  71137,   5373, 106045,   5373, 106722,
+          3837, 109257, 102398,  99204, 115025,  57191, 104313,   1773, 151645,
+        151643], device='cuda:0')], 
+labels:
+[tensor([  -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+          -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+          -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+          -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+          -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+          -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,   -100,
+          -100,   -100,   -100,   -100,   -100,   -100, 108683,  99508, 101317,
+         99769,     16,   5373, 101304,  57218, 110819,   5122, 109689, 121033,
+        101143, 100439,   3837, 109689, 101335, 102781, 100439,   3837, 109689,
+        101335,  35551, 100439,   3837, 109689, 119386, 101002, 100439,   3837,
+        109689, 100859, 117972,  99478, 100439,   3837, 109689, 100250,  99561,
+         33071, 100859, 100439,   3837,  24592,  24134,  99252,   3837, 109689,
+        113083,  33071, 101317, 101232, 100439,   3837, 101317, 102504, 115623,
+        101561,      7, 121471,  16872,   5373, 100859, 115301,   5373, 102427,
+        102504, 115623, 101561,      8,   1773,     17,   5373,  34794, 102504,
+        108022,  99621, 100451,   5122, 100518,   5373, 101301,  63367, 100859,
+        114222,  99621, 100451,   3837, 100518, 100575,  99621, 100451,   3837,
+         99616, 100718, 100859,  99621, 100451,   3837, 100250, 120471,  33071,
+        101335, 102781, 100439,  99621, 100451,   3837, 110151,  47815,  99616,
+        100859, 114149,   1773,     18,   5373, 110151, 107429,   5122, 116051,
+        110562, 101364,   5373, 101696, 114149,  57191, 100859,  38176, 101232,
+        102890, 114149,   3837, 112019,  33071, 101364, 100575, 114149,     26,
+        101317,  57191, 117334, 116051, 101317, 101232,  33447,  99389, 101561,
+          1773,     19,   5373, 107583, 100318,   5122, 100518, 113217,   3837,
+        101335,  44793,   3837, 101690, 102395,  44793, 107583, 100318,   1773,
+            20,   5373, 113698, 103060,   5122, 100518, 113217, 107583, 100318,
+         57191, 113064, 106045, 115265,  99299,  99389, 101353, 102544,   3837,
+        100636,  99545,  99389, 100250,  99561,   3837,  38953, 100673, 101317,
+        101232, 100439,   5373, 100242,  99316,   1773,     21,   5373, 102890,
+        112140,   5122, 102890, 116154, 101202,   3837,  29524,  63109,  99218,
+        101538, 103255,   5373,  99449, 109689, 107368,  33071,  63109,  31843,
+        101232, 100439,   3837, 103023, 100093, 100265,  99389, 116154, 113310,
+         99299, 100859,  38176, 101232, 109826, 116154, 101202,   3837, 101696,
+        116154, 101202,   5373, 102512, 116154, 101202,  49567,   1773,  99389,
+        116154, 101894,   3837,  29524, 109689,  64689, 113630, 100439,  99595,
+        100859,  38176, 101232, 113630,  99389, 116154, 101894,   1773, 109826,
+        102785, 114149,   3837,  29524, 101317, 101966, 100297,   5373, 101364,
+          5373, 102512,   5373, 101696, 109826, 102785, 114149, 107429,   1773,
+         99981,  51232,  69526, 101160, 109689, 108396, 100439,   3837, 109689,
+        102427, 102504, 100439,   3837, 113064,  99789,  31914, 114149,   3837,
+        113064, 106045, 115265,   3837,  62945,  24156, 111242, 114149,   1773,
+        116298, 101160,     16,   5373, 110151, 116298,  99252,   5122, 109689,
+        113385, 100439,   3837, 109689, 100859,  38176, 101232, 114814,  36885,
+        100439,   3837, 109689, 101320,  33071, 101364, 100439,   5373,  52129,
+         28291,  33071, 101317, 101232, 100439,   3837, 101317,  24300, 101168,
+        102742,   3837, 119520,  99762, 102150, 115722, 100087,  46423,   3837,
+        108633, 109470,   3837, 107218,   3837, 102395,  99586,  99769,   1773,
+            17,   5373,  65676, 110151, 116298,  99252,   5122, 101887, 102398,
+        100578, 100068, 112484,  99299, 101317, 100406,   3837, 101536,  18830,
+        109689, 102749,   3837, 109689, 100277, 101232, 100439,   3837,  63109,
+        113698, 100406,   3837,  63109, 101408, 107583,  99561,   3837, 100887,
+        109826, 116154, 101202,   1773,     18,   5373, 109257, 103661, 112140,
+          5122, 109257, 102277,  49185,  21287,  33071, 100049, 107914, 100439,
+          3837, 109257, 102277,  36885,  71137,   5373, 106045,   5373, 106722,
+          3837, 109257, 102398,  99204, 115025,  57191, 104313,   1773, 151645,
+          -100], device='cuda:0')]
+2026-08-24 23:46:52.394 | DEBUG    | __main__:main:972 - Decode input_ids[0]:
+<|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+<|im_start|>user
+请以科普和就医建议为主，避免替代医生诊断；如出现急重症或症状加重，应及时就医。
+
+急腹症的发病原因？<|im_end|>
+<|im_start|>assistant
+外科急腹症1、感染与炎症：急性阑尾炎，急性胆囊炎，急性胆管炎，急性胰腺炎，急性肠憩室炎，急性坏死性肠炎， Crohn病，急性弥漫性腹膜炎，腹腔脓肿(膈下、肠间隙、盆腔脓肿)。2、空腔器官穿孔：胃、十二指肠溃疡穿孔，胃癌穿孔，伤寒肠穿孔，坏疽性胆囊炎穿孔，腹部外伤肠破裂。3、腹部出血：创伤所致肝、脾破裂或肠系膜血管破裂，自发性肝癌破裂;腹或腰部创伤腹膜后血肿。4、梗阻：胃肠道，胆道，泌尿道梗阻。5、绞窄：胃肠道梗阻或卵巢肿瘤扭转致血循环障碍，甚至缺血坏死，常导致腹膜炎、休克。6、血管病变：血管栓塞，如心房纤颤、亚急性细菌性心内膜炎，心脏附壁血栓脱落致肠系膜动脉栓塞，脾栓塞、肾栓塞等。血栓形成，如急性门静脉炎伴肠系膜静脉血栓形成。动脉瘤破裂，如腹主动脉、肝、肾、脾动脉瘤破裂出血。妇产科疾病急性附件炎，急性盆腔炎，卵巢黄体破裂，卵巢肿瘤扭转，异位妊娠破裂。内科疾病1、腹部内科病：急性胃肠炎，急性肠系膜淋巴结炎，急性病毒性肝炎、原发性腹膜炎，腹型紫癜，镰状细胞贫血危象，铅中毒，糖尿病，尿毒症。2、非腹部内科病：由于神经牵涉放射致腹痛，常见有急性肺炎，急性胸膜炎，心绞痛，心肌梗死，肺动脉栓塞。3、脊髓病变：脊柱增生性骨关节炎，脊柱结核、肿瘤、损伤，脊神经受压迫或刺激。<|im_end|><|endoftext|>
+2026-08-24 23:46:52.442 | DEBUG    | __main__:main:975 - Decode labels[0]:
+<|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|><|endoftext|>外科急腹症1、感染与炎症：急性阑尾炎，急性胆囊炎，急性胆管炎，急性胰腺炎，急性肠憩室炎，急性坏死性肠炎， Crohn病，急性弥漫性腹膜炎，腹腔脓肿(膈下、肠间隙、盆腔脓肿)。2、空腔器官穿孔：胃、十二指肠溃疡穿孔，胃癌穿孔，伤寒肠穿孔，坏疽性胆囊炎穿孔，腹部外伤肠破裂。3、腹部出血：创伤所致肝、脾破裂或肠系膜血管破裂，自发性肝癌破裂;腹或腰部创伤腹膜后血肿。4、梗阻：胃肠道，胆道，泌尿道梗阻。5、绞窄：胃肠道梗阻或卵巢肿瘤扭转致血循环障碍，甚至缺血坏死，常导致腹膜炎、休克。6、血管病变：血管栓塞，如心房纤颤、亚急性细菌性心内膜炎，心脏附壁血栓脱落致肠系膜动脉栓塞，脾栓塞、肾栓塞等。血栓形成，如急性门静脉炎伴肠系膜静脉血栓形成。动脉瘤破裂，如腹主动脉、肝、肾、脾动脉瘤破裂出血。妇产科疾病急性附件炎，急性盆腔炎，卵巢黄体破裂，卵巢肿瘤扭转，异位妊娠破裂。内科疾病1、腹部内科病：急性胃肠炎，急性肠系膜淋巴结炎，急性病毒性肝炎、原发性腹膜炎，腹型紫癜，镰状细胞贫血危象，铅中毒，糖尿病，尿毒症。2、非腹部内科病：由于神经牵涉放射致腹痛，常见有急性肺炎，急性胸膜炎，心绞痛，心肌梗死，肺动脉栓塞。3、脊髓病变：脊柱增生性骨关节炎，脊柱结核、肿瘤、损伤，脊神经受压迫或刺激。<|im_end|><|endoftext|>
+The tokenizer has new PAD/BOS/EOS tokens that differ from the model config and generation config. The model config and generation config were aligned accordingly, being updated with the tokenizer's values. Updated tokens: {'bos_token_id': 151645, 'pad_token_id': 151643}.
+
+  0%|          | 0/125 [00:00<?, ?it/s]
+  1%|          | 1/125 [00:03<07:52,  3.81s/it]
+                                               
+{'loss': 2.1905, 'grad_norm': 0.27196741104125977, 'learning_rate': 0.0, 'epoch': 0.01}
+
+  1%|          | 1/125 [00:03<07:52,  3.81s/it]
+  2%|▏         | 2/125 [00:06<06:07,  2.99s/it]
+                                               
+{'loss': 2.4782, 'grad_norm': 0.30662116408348083, 'learning_rate': 5e-06, 'epoch': 0.02}
+
+  2%|▏         | 2/125 [00:06<06:07,  2.99s/it]
+  2%|▏         | 3/125 [00:08<04:58,  2.45s/it]
+                                               
+{'loss': 2.5031, 'grad_norm': 0.5079975128173828, 'learning_rate': 1e-05, 'epoch': 0.02}
+
+  2%|▏         | 3/125 [00:08<04:58,  2.45s/it]
+  3%|▎         | 4/125 [00:10<05:08,  2.55s/it]
+                                               
+{'loss': 2.2802, 'grad_norm': 0.2594624161720276, 'learning_rate': 1.5000000000000002e-05, 'epoch': 0.03}
+
+  3%|▎         | 4/125 [00:10<05:08,  2.55s/it]
+  4%|▍         | 5/125 [00:12<04:44,  2.37s/it]
+                                               
+{'loss': 2.4723, 'grad_norm': 0.3681212365627289, 'learning_rate': 2e-05, 'epoch': 0.04}
+
+  4%|▍         | 5/125 [00:12<04:44,  2.37s/it]
+  5%|▍         | 6/125 [00:14<04:23,  2.21s/it]
+                                               
+{'loss': 2.4233, 'grad_norm': 0.39997753500938416, 'learning_rate': 1.9834710743801656e-05, 'epoch': 0.05}
+
+  5%|▍         | 6/125 [00:14<04:23,  2.21s/it]
+  6%|▌         | 7/125 [00:16<04:17,  2.18s/it]
+                                               
+{'loss': 2.2529, 'grad_norm': 0.41458457708358765, 'learning_rate': 1.9669421487603307e-05, 'epoch': 0.06}
+
+  6%|▌         | 7/125 [00:16<04:17,  2.18s/it]
+  6%|▋         | 8/125 [00:18<03:59,  2.05s/it]
+                                               
+{'loss': 1.8683, 'grad_norm': 0.6290470957756042, 'learning_rate': 1.950413223140496e-05, 'epoch': 0.06}
+
+  6%|▋         | 8/125 [00:18<03:59,  2.05s/it]
+  7%|▋         | 9/125 [00:20<04:03,  2.10s/it]
+                                               
+{'loss': 2.4555, 'grad_norm': 0.36520931124687195, 'learning_rate': 1.9338842975206613e-05, 'epoch': 0.07}
+
+  7%|▋         | 9/125 [00:20<04:03,  2.10s/it]
+  8%|▊         | 10/125 [00:22<03:58,  2.07s/it]
+                                                
+{'loss': 2.5449, 'grad_norm': 0.4613448977470398, 'learning_rate': 1.9173553719008268e-05, 'epoch': 0.08}
+
+  8%|▊         | 10/125 [00:22<03:58,  2.07s/it]
+  9%|▉         | 11/125 [00:24<03:58,  2.09s/it]
+                                                
+{'loss': 2.5026, 'grad_norm': 0.4018933176994324, 'learning_rate': 1.900826446280992e-05, 'epoch': 0.09}
+
+  9%|▉         | 11/125 [00:24<03:58,  2.09s/it]
+ 10%|▉         | 12/125 [00:26<03:47,  2.01s/it]
+                                                
+{'loss': 2.3009, 'grad_norm': 0.4314795732498169, 'learning_rate': 1.884297520661157e-05, 'epoch': 0.1}
+
+ 10%|▉         | 12/125 [00:26<03:47,  2.01s/it]
+ 10%|█         | 13/125 [00:28<03:43,  1.99s/it]
+                                                
+{'loss': 2.8032, 'grad_norm': 0.5055823922157288, 'learning_rate': 1.8677685950413225e-05, 'epoch': 0.1}
+
+ 10%|█         | 13/125 [00:28<03:43,  1.99s/it]
+ 11%|█         | 14/125 [00:30<03:39,  1.98s/it]
+                                                
+{'loss': 2.3176, 'grad_norm': 0.38049381971359253, 'learning_rate': 1.851239669421488e-05, 'epoch': 0.11}
+
+ 11%|█         | 14/125 [00:30<03:39,  1.98s/it]
+ 12%|█▏        | 15/125 [00:32<03:34,  1.95s/it]
+                                                
+{'loss': 2.5301, 'grad_norm': 0.5336272120475769, 'learning_rate': 1.834710743801653e-05, 'epoch': 0.12}
+
+ 12%|█▏        | 15/125 [00:32<03:34,  1.95s/it]
+ 13%|█▎        | 16/125 [00:34<03:23,  1.86s/it]
+                                                
+{'loss': 2.5616, 'grad_norm': 0.4503191411495209, 'learning_rate': 1.8181818181818182e-05, 'epoch': 0.13}
+
+ 13%|█▎        | 16/125 [00:34<03:23,  1.86s/it]
+ 14%|█▎        | 17/125 [00:36<03:21,  1.87s/it]
+                                                
+{'loss': 2.4452, 'grad_norm': 0.4667242765426636, 'learning_rate': 1.8016528925619837e-05, 'epoch': 0.14}
+
+ 14%|█▎        | 17/125 [00:36<03:21,  1.87s/it]
+ 14%|█▍        | 18/125 [00:38<03:22,  1.89s/it]
+                                                
+{'loss': 2.2017, 'grad_norm': 0.4268532991409302, 'learning_rate': 1.7851239669421488e-05, 'epoch': 0.14}
+
+ 14%|█▍        | 18/125 [00:38<03:22,  1.89s/it]
+ 15%|█▌        | 19/125 [00:40<03:48,  2.16s/it]
+                                                
+{'loss': 1.9956, 'grad_norm': 0.26808661222457886, 'learning_rate': 1.7685950413223143e-05, 'epoch': 0.15}
+
+ 15%|█▌        | 19/125 [00:40<03:48,  2.16s/it]
+ 16%|█▌        | 20/125 [00:42<03:26,  1.97s/it]
+                                                
+{'loss': 2.1143, 'grad_norm': 0.8614862561225891, 'learning_rate': 1.7520661157024794e-05, 'epoch': 0.16}
+
+ 16%|█▌        | 20/125 [00:42<03:26,  1.97s/it]
+ 17%|█▋        | 21/125 [00:44<03:24,  1.97s/it]
+                                                
+{'loss': 2.4629, 'grad_norm': 0.4137267768383026, 'learning_rate': 1.735537190082645e-05, 'epoch': 0.17}
+
+ 17%|█▋        | 21/125 [00:44<03:24,  1.97s/it]
+ 18%|█▊        | 22/125 [00:46<03:30,  2.05s/it]
+                                                
+{'loss': 1.9487, 'grad_norm': 0.40005072951316833, 'learning_rate': 1.71900826446281e-05, 'epoch': 0.18}
+
+ 18%|█▊        | 22/125 [00:46<03:30,  2.05s/it]
+ 18%|█▊        | 23/125 [00:48<03:33,  2.10s/it]
+                                                
+{'loss': 2.331, 'grad_norm': 0.51260906457901, 'learning_rate': 1.7024793388429754e-05, 'epoch': 0.18}
+
+ 18%|█▊        | 23/125 [00:48<03:33,  2.10s/it]
+ 19%|█▉        | 24/125 [00:51<03:38,  2.16s/it]
+                                                
+{'loss': 2.377, 'grad_norm': 0.4618479907512665, 'learning_rate': 1.6859504132231405e-05, 'epoch': 0.19}
+
+ 19%|█▉        | 24/125 [00:51<03:38,  2.16s/it]
+ 20%|██        | 25/125 [00:52<03:21,  2.01s/it]
+                                                
+{'loss': 2.3978, 'grad_norm': 0.7100008130073547, 'learning_rate': 1.669421487603306e-05, 'epoch': 0.2}
+
+ 20%|██        | 25/125 [00:52<03:21,  2.01s/it]
+ 21%|██        | 26/125 [00:54<03:22,  2.05s/it]
+                                                
+{'loss': 2.5341, 'grad_norm': 0.4601134955883026, 'learning_rate': 1.652892561983471e-05, 'epoch': 0.21}
+
+ 21%|██        | 26/125 [00:54<03:22,  2.05s/it]
+ 22%|██▏       | 27/125 [00:56<03:11,  1.95s/it]
+                                                
+{'loss': 2.4385, 'grad_norm': 0.751041054725647, 'learning_rate': 1.6363636363636366e-05, 'epoch': 0.22}
+
+ 22%|██▏       | 27/125 [00:56<03:11,  1.95s/it]
+ 22%|██▏       | 28/125 [00:59<03:42,  2.29s/it]
+                                                
+{'loss': 2.2127, 'grad_norm': 0.3164534270763397, 'learning_rate': 1.6198347107438017e-05, 'epoch': 0.22}
+
+ 22%|██▏       | 28/125 [00:59<03:42,  2.29s/it]
+ 23%|██▎       | 29/125 [01:01<03:29,  2.18s/it]
+                                                
+{'loss': 2.2055, 'grad_norm': 0.5643928647041321, 'learning_rate': 1.6033057851239672e-05, 'epoch': 0.23}
+
+ 23%|██▎       | 29/125 [01:01<03:29,  2.18s/it]
+ 24%|██▍       | 30/125 [01:03<03:24,  2.15s/it]
+                                                
+{'loss': 2.1012, 'grad_norm': 0.5476632118225098, 'learning_rate': 1.5867768595041323e-05, 'epoch': 0.24}
+
+ 24%|██▍       | 30/125 [01:03<03:24,  2.15s/it]
+ 25%|██▍       | 31/125 [01:05<03:18,  2.11s/it]
+                                                
+{'loss': 2.2168, 'grad_norm': 0.6099154949188232, 'learning_rate': 1.5702479338842978e-05, 'epoch': 0.25}
+
+ 25%|██▍       | 31/125 [01:05<03:18,  2.11s/it]
+ 26%|██▌       | 32/125 [01:07<03:20,  2.16s/it]
+                                                
+{'loss': 1.9546, 'grad_norm': 0.3849675953388214, 'learning_rate': 1.553719008264463e-05, 'epoch': 0.26}
+
+ 26%|██▌       | 32/125 [01:07<03:20,  2.16s/it]
+ 26%|██▋       | 33/125 [01:09<03:15,  2.12s/it]
+                                                
+{'loss': 2.1826, 'grad_norm': 0.7443204522132874, 'learning_rate': 1.5371900826446283e-05, 'epoch': 0.26}
+
+ 26%|██▋       | 33/125 [01:09<03:15,  2.12s/it]
+ 27%|██▋       | 34/125 [01:12<03:13,  2.12s/it]
+                                                
+{'loss': 2.0828, 'grad_norm': 0.7424582242965698, 'learning_rate': 1.5206611570247936e-05, 'epoch': 0.27}
+
+ 27%|██▋       | 34/125 [01:12<03:13,  2.12s/it]
+ 28%|██▊       | 35/125 [01:14<03:12,  2.13s/it]
+                                                
+{'loss': 2.3997, 'grad_norm': 0.42402616143226624, 'learning_rate': 1.504132231404959e-05, 'epoch': 0.28}
+
+ 28%|██▊       | 35/125 [01:14<03:12,  2.13s/it]
+ 29%|██▉       | 36/125 [01:17<03:31,  2.37s/it]
+                                                
+{'loss': 2.2628, 'grad_norm': 0.3325972259044647, 'learning_rate': 1.487603305785124e-05, 'epoch': 0.29}
+
+ 29%|██▉       | 36/125 [01:17<03:31,  2.37s/it]
+ 30%|██▉       | 37/125 [01:19<03:20,  2.28s/it]
+                                                
+{'loss': 2.2569, 'grad_norm': 0.5359115600585938, 'learning_rate': 1.4710743801652893e-05, 'epoch': 0.3}
+
+ 30%|██▉       | 37/125 [01:19<03:20,  2.28s/it]
+ 30%|███       | 38/125 [01:21<03:11,  2.21s/it]
+                                                
+{'loss': 2.4935, 'grad_norm': 0.5440108180046082, 'learning_rate': 1.4545454545454546e-05, 'epoch': 0.3}
+
+ 30%|███       | 38/125 [01:21<03:11,  2.21s/it]
+ 31%|███       | 39/125 [01:23<02:58,  2.07s/it]
+                                                
+{'loss': 2.3604, 'grad_norm': 0.9540395736694336, 'learning_rate': 1.4380165289256201e-05, 'epoch': 0.31}
+
+ 31%|███       | 39/125 [01:23<02:58,  2.07s/it]
+ 32%|███▏      | 40/125 [01:25<02:54,  2.06s/it]
+                                                
+{'loss': 2.0397, 'grad_norm': 0.694951057434082, 'learning_rate': 1.4214876033057852e-05, 'epoch': 0.32}
+
+ 32%|███▏      | 40/125 [01:25<02:54,  2.06s/it]
+ 33%|███▎      | 41/125 [01:26<02:45,  1.97s/it]
+                                                
+{'loss': 2.3291, 'grad_norm': 0.8934196829795837, 'learning_rate': 1.4049586776859505e-05, 'epoch': 0.33}
+
+ 33%|███▎      | 41/125 [01:26<02:45,  1.97s/it]
+ 34%|███▎      | 42/125 [01:28<02:44,  1.98s/it]
+                                                
+{'loss': 2.4525, 'grad_norm': 0.7028619050979614, 'learning_rate': 1.3884297520661158e-05, 'epoch': 0.34}
+
+ 34%|███▎      | 42/125 [01:28<02:44,  1.98s/it]
+ 34%|███▍      | 43/125 [01:30<02:41,  1.97s/it]
+                                                
+{'loss': 2.4525, 'grad_norm': 0.5650539994239807, 'learning_rate': 1.3719008264462813e-05, 'epoch': 0.34}
+
+ 34%|███▍      | 43/125 [01:30<02:41,  1.97s/it]
+ 35%|███▌      | 44/125 [01:33<02:55,  2.16s/it]
+                                                
+{'loss': 2.2559, 'grad_norm': 0.4534648358821869, 'learning_rate': 1.3553719008264464e-05, 'epoch': 0.35}
+
+ 35%|███▌      | 44/125 [01:33<02:55,  2.16s/it]
+ 36%|███▌      | 45/125 [01:35<02:49,  2.11s/it]
+                                                
+{'loss': 2.0216, 'grad_norm': 0.5881396532058716, 'learning_rate': 1.3388429752066117e-05, 'epoch': 0.36}
+
+ 36%|███▌      | 45/125 [01:35<02:49,  2.11s/it]
+ 37%|███▋      | 46/125 [01:37<02:44,  2.08s/it]
+                                                
+{'loss': 2.1465, 'grad_norm': 0.9431192874908447, 'learning_rate': 1.322314049586777e-05, 'epoch': 0.37}
+
+ 37%|███▋      | 46/125 [01:37<02:44,  2.08s/it]
+ 38%|███▊      | 47/125 [01:39<02:34,  1.99s/it]
+                                                
+{'loss': 2.1031, 'grad_norm': 0.9159771800041199, 'learning_rate': 1.3057851239669424e-05, 'epoch': 0.38}
+
+ 38%|███▊      | 47/125 [01:39<02:34,  1.99s/it]
+ 38%|███▊      | 48/125 [01:41<02:32,  1.98s/it]
+                                                
+{'loss': 2.1624, 'grad_norm': 0.7064847946166992, 'learning_rate': 1.2892561983471074e-05, 'epoch': 0.38}
+
+ 38%|███▊      | 48/125 [01:41<02:32,  1.98s/it]
+ 39%|███▉      | 49/125 [01:43<02:29,  1.96s/it]
+                                                
+{'loss': 2.1569, 'grad_norm': 0.6780207753181458, 'learning_rate': 1.2727272727272728e-05, 'epoch': 0.39}
+
+ 39%|███▉      | 49/125 [01:43<02:29,  1.96s/it]
+ 40%|████      | 50/125 [01:45<02:32,  2.03s/it]
+                                                
+{'loss': 1.7399, 'grad_norm': 0.59809410572052, 'learning_rate': 1.2561983471074381e-05, 'epoch': 0.4}
+
+ 40%|████      | 50/125 [01:45<02:32,  2.03s/it]
+ 41%|████      | 51/125 [01:47<02:26,  1.98s/it]
+                                                
+{'loss': 2.3128, 'grad_norm': 0.8843540549278259, 'learning_rate': 1.2396694214876034e-05, 'epoch': 0.41}
+
+ 41%|████      | 51/125 [01:47<02:26,  1.98s/it]
+ 42%|████▏     | 52/125 [01:49<02:26,  2.01s/it]
+                                                
+{'loss': 2.127, 'grad_norm': 0.9794718623161316, 'learning_rate': 1.2231404958677686e-05, 'epoch': 0.42}
+
+ 42%|████▏     | 52/125 [01:49<02:26,  2.01s/it]
+ 42%|████▏     | 53/125 [01:51<02:38,  2.21s/it]
+                                                
+{'loss': 2.0345, 'grad_norm': 0.5450394749641418, 'learning_rate': 1.206611570247934e-05, 'epoch': 0.42}
+
+ 42%|████▏     | 53/125 [01:51<02:38,  2.21s/it]
+ 43%|████▎     | 54/125 [01:53<02:23,  2.02s/it]
+                                                
+{'loss': 2.3123, 'grad_norm': 1.382390022277832, 'learning_rate': 1.1900826446280993e-05, 'epoch': 0.43}
+
+ 43%|████▎     | 54/125 [01:53<02:23,  2.02s/it]
+ 44%|████▍     | 55/125 [01:55<02:13,  1.91s/it]
+                                                
+{'loss': 2.1702, 'grad_norm': 0.8171190023422241, 'learning_rate': 1.1735537190082646e-05, 'epoch': 0.44}
+
+ 44%|████▍     | 55/125 [01:55<02:13,  1.91s/it]
+ 45%|████▍     | 56/125 [01:56<02:03,  1.79s/it]
+                                                
+{'loss': 2.6711, 'grad_norm': 1.2709438800811768, 'learning_rate': 1.1570247933884297e-05, 'epoch': 0.45}
+
+ 45%|████▍     | 56/125 [01:56<02:03,  1.79s/it]
+ 46%|████▌     | 57/125 [01:58<02:02,  1.81s/it]
+                                                
+{'loss': 2.4014, 'grad_norm': 0.6138403415679932, 'learning_rate': 1.1404958677685952e-05, 'epoch': 0.46}
+
+ 46%|████▌     | 57/125 [01:58<02:02,  1.81s/it]
+ 46%|████▋     | 58/125 [02:00<02:01,  1.81s/it]
+                                                
+{'loss': 2.2874, 'grad_norm': 0.7506692409515381, 'learning_rate': 1.1239669421487605e-05, 'epoch': 0.46}
+
+ 46%|████▋     | 58/125 [02:00<02:01,  1.81s/it]
+ 47%|████▋     | 59/125 [02:02<02:06,  1.91s/it]
+                                                
+{'loss': 2.1003, 'grad_norm': 0.3904435634613037, 'learning_rate': 1.1074380165289258e-05, 'epoch': 0.47}
+
+ 47%|████▋     | 59/125 [02:02<02:06,  1.91s/it]
+ 48%|████▊     | 60/125 [02:03<01:55,  1.78s/it]
+                                                
+{'loss': 2.1247, 'grad_norm': 0.75877445936203, 'learning_rate': 1.0909090909090909e-05, 'epoch': 0.48}
+
+ 48%|████▊     | 60/125 [02:03<01:55,  1.78s/it]
+ 49%|████▉     | 61/125 [02:05<01:56,  1.82s/it]
+                                                
+{'loss': 2.4307, 'grad_norm': 0.42946064472198486, 'learning_rate': 1.0743801652892562e-05, 'epoch': 0.49}
+
+ 49%|████▉     | 61/125 [02:05<01:56,  1.82s/it]
+ 50%|████▉     | 62/125 [02:07<01:56,  1.86s/it]
+                                                
+{'loss': 1.944, 'grad_norm': 0.5375446677207947, 'learning_rate': 1.0578512396694216e-05, 'epoch': 0.5}
+
+ 50%|████▉     | 62/125 [02:07<01:56,  1.86s/it]
+ 50%|█████     | 63/125 [02:09<01:55,  1.87s/it]
+                                                
+{'loss': 2.8296, 'grad_norm': 0.429513543844223, 'learning_rate': 1.041322314049587e-05, 'epoch': 0.5}
+
+ 50%|█████     | 63/125 [02:09<01:55,  1.87s/it]
+ 51%|█████     | 64/125 [02:11<01:52,  1.85s/it]
+                                                
+{'loss': 2.3919, 'grad_norm': 0.4499158263206482, 'learning_rate': 1.024793388429752e-05, 'epoch': 0.51}
+
+ 51%|█████     | 64/125 [02:11<01:52,  1.85s/it]
+ 52%|█████▏    | 65/125 [02:13<01:55,  1.92s/it]
+                                                
+{'loss': 2.3422, 'grad_norm': 0.3640954792499542, 'learning_rate': 1.0082644628099174e-05, 'epoch': 0.52}
+
+ 52%|█████▏    | 65/125 [02:13<01:55,  1.92s/it]
+ 53%|█████▎    | 66/125 [02:14<01:45,  1.78s/it]
+                                                
+{'loss': 2.4816, 'grad_norm': 1.0485234260559082, 'learning_rate': 9.917355371900828e-06, 'epoch': 0.53}
+
+ 53%|█████▎    | 66/125 [02:14<01:45,  1.78s/it]
+ 54%|█████▎    | 67/125 [02:17<01:48,  1.87s/it]
+                                                
+{'loss': 2.2406, 'grad_norm': 0.4235936105251312, 'learning_rate': 9.75206611570248e-06, 'epoch': 0.54}
+
+ 54%|█████▎    | 67/125 [02:17<01:48,  1.87s/it]
+ 54%|█████▍    | 68/125 [02:18<01:43,  1.81s/it]
+                                                
+{'loss': 1.4648, 'grad_norm': 0.655189037322998, 'learning_rate': 9.586776859504134e-06, 'epoch': 0.54}
+
+ 54%|█████▍    | 68/125 [02:18<01:43,  1.81s/it]
+ 55%|█████▌    | 69/125 [02:20<01:36,  1.73s/it]
+                                                
+{'loss': 2.1504, 'grad_norm': 1.5826061964035034, 'learning_rate': 9.421487603305785e-06, 'epoch': 0.55}
+
+ 55%|█████▌    | 69/125 [02:20<01:36,  1.73s/it]
+ 56%|█████▌    | 70/125 [02:22<01:36,  1.75s/it]
+                                                
+{'loss': 1.9433, 'grad_norm': 0.7801109552383423, 'learning_rate': 9.25619834710744e-06, 'epoch': 0.56}
+
+ 56%|█████▌    | 70/125 [02:22<01:36,  1.75s/it]
+ 57%|█████▋    | 71/125 [02:23<01:36,  1.79s/it]
+                                                
+{'loss': 1.9175, 'grad_norm': 0.44340619444847107, 'learning_rate': 9.090909090909091e-06, 'epoch': 0.57}
+
+ 57%|█████▋    | 71/125 [02:23<01:36,  1.79s/it]
+ 58%|█████▊    | 72/125 [02:25<01:35,  1.81s/it]
+                                                
+{'loss': 2.3165, 'grad_norm': 0.500268816947937, 'learning_rate': 8.925619834710744e-06, 'epoch': 0.58}
+
+ 58%|█████▊    | 72/125 [02:25<01:35,  1.81s/it]
+ 58%|█████▊    | 73/125 [02:28<01:49,  2.10s/it]
+                                                
+{'loss': 2.2116, 'grad_norm': 0.24907881021499634, 'learning_rate': 8.760330578512397e-06, 'epoch': 0.58}
+
+ 58%|█████▊    | 73/125 [02:28<01:49,  2.10s/it]
+ 59%|█████▉    | 74/125 [02:30<01:48,  2.13s/it]
+                                                
+{'loss': 2.2901, 'grad_norm': 0.4979937672615051, 'learning_rate': 8.59504132231405e-06, 'epoch': 0.59}
+
+ 59%|█████▉    | 74/125 [02:30<01:48,  2.13s/it]
+ 60%|██████    | 75/125 [02:32<01:44,  2.09s/it]
+                                                
+{'loss': 2.0397, 'grad_norm': 0.3266601860523224, 'learning_rate': 8.429752066115703e-06, 'epoch': 0.6}
+
+ 60%|██████    | 75/125 [02:32<01:44,  2.09s/it]
+ 61%|██████    | 76/125 [02:35<01:44,  2.14s/it]
+                                                
+{'loss': 2.0853, 'grad_norm': 0.35258373618125916, 'learning_rate': 8.264462809917356e-06, 'epoch': 0.61}
+
+ 61%|██████    | 76/125 [02:35<01:44,  2.14s/it]
+ 62%|██████▏   | 77/125 [02:37<01:41,  2.11s/it]
+                                                
+{'loss': 2.1965, 'grad_norm': 0.35102516412734985, 'learning_rate': 8.099173553719009e-06, 'epoch': 0.62}
+
+ 62%|██████▏   | 77/125 [02:37<01:41,  2.11s/it]
+ 62%|██████▏   | 78/125 [02:39<01:40,  2.14s/it]
+                                                
+{'loss': 1.841, 'grad_norm': 0.34251758456230164, 'learning_rate': 7.933884297520661e-06, 'epoch': 0.62}
+
+ 62%|██████▏   | 78/125 [02:39<01:40,  2.14s/it]
+ 63%|██████▎   | 79/125 [02:41<01:34,  2.05s/it]
+                                                
+{'loss': 2.3703, 'grad_norm': 0.7444178462028503, 'learning_rate': 7.768595041322314e-06, 'epoch': 0.63}
+
+ 63%|██████▎   | 79/125 [02:41<01:34,  2.05s/it]
+ 64%|██████▍   | 80/125 [02:43<01:30,  2.02s/it]
+                                                
+{'loss': 2.1223, 'grad_norm': 0.3661981225013733, 'learning_rate': 7.603305785123968e-06, 'epoch': 0.64}
+
+ 64%|██████▍   | 80/125 [02:43<01:30,  2.02s/it]
+ 65%|██████▍   | 81/125 [02:45<01:35,  2.17s/it]
+                                                
+{'loss': 1.7509, 'grad_norm': 0.2810630202293396, 'learning_rate': 7.43801652892562e-06, 'epoch': 0.65}
+
+ 65%|██████▍   | 81/125 [02:45<01:35,  2.17s/it]
+ 66%|██████▌   | 82/125 [02:47<01:32,  2.15s/it]
+                                                
+{'loss': 2.0716, 'grad_norm': 0.3104564845561981, 'learning_rate': 7.272727272727273e-06, 'epoch': 0.66}
+
+ 66%|██████▌   | 82/125 [02:47<01:32,  2.15s/it]
+ 66%|██████▋   | 83/125 [02:50<01:34,  2.26s/it]
+                                                
+{'loss': 2.3991, 'grad_norm': 0.29788678884506226, 'learning_rate': 7.107438016528926e-06, 'epoch': 0.66}
+
+ 66%|██████▋   | 83/125 [02:50<01:34,  2.26s/it]
+ 67%|██████▋   | 84/125 [02:52<01:28,  2.15s/it]
+                                                
+{'loss': 1.8951, 'grad_norm': 0.39430391788482666, 'learning_rate': 6.942148760330579e-06, 'epoch': 0.67}
+
+ 67%|██████▋   | 84/125 [02:52<01:28,  2.15s/it]
+ 68%|██████▊   | 85/125 [02:53<01:22,  2.07s/it]
+                                                
+{'loss': 2.3323, 'grad_norm': 0.43802011013031006, 'learning_rate': 6.776859504132232e-06, 'epoch': 0.68}
+
+ 68%|██████▊   | 85/125 [02:53<01:22,  2.07s/it]
+ 69%|██████▉   | 86/125 [02:56<01:22,  2.12s/it]
+                                                
+{'loss': 2.3018, 'grad_norm': 0.3108501136302948, 'learning_rate': 6.611570247933885e-06, 'epoch': 0.69}
+
+ 69%|██████▉   | 86/125 [02:56<01:22,  2.12s/it]
+ 70%|██████▉   | 87/125 [02:58<01:20,  2.13s/it]
+                                                
+{'loss': 2.4315, 'grad_norm': 0.29776501655578613, 'learning_rate': 6.446280991735537e-06, 'epoch': 0.7}
+
+ 70%|██████▉   | 87/125 [02:58<01:20,  2.13s/it]
+ 70%|███████   | 88/125 [03:00<01:17,  2.10s/it]
+                                                
+{'loss': 1.9626, 'grad_norm': 0.30173975229263306, 'learning_rate': 6.280991735537191e-06, 'epoch': 0.7}
+
+ 70%|███████   | 88/125 [03:00<01:17,  2.10s/it]
+ 71%|███████   | 89/125 [03:02<01:13,  2.04s/it]
+                                                
+{'loss': 2.0921, 'grad_norm': 0.3786163330078125, 'learning_rate': 6.115702479338843e-06, 'epoch': 0.71}
+
+ 71%|███████   | 89/125 [03:02<01:13,  2.04s/it]
+ 72%|███████▏  | 90/125 [03:04<01:09,  1.97s/it]
+                                                
+{'loss': 2.4116, 'grad_norm': 0.45633313059806824, 'learning_rate': 5.9504132231404965e-06, 'epoch': 0.72}
+
+ 72%|███████▏  | 90/125 [03:04<01:09,  1.97s/it]
+ 73%|███████▎  | 91/125 [03:05<01:04,  1.91s/it]
+                                                
+{'loss': 2.3762, 'grad_norm': 0.6128788590431213, 'learning_rate': 5.785123966942149e-06, 'epoch': 0.73}
+
+ 73%|███████▎  | 91/125 [03:05<01:04,  1.91s/it]
+ 74%|███████▎  | 92/125 [03:08<01:07,  2.03s/it]
+                                                
+{'loss': 2.298, 'grad_norm': 0.3733580708503723, 'learning_rate': 5.619834710743802e-06, 'epoch': 0.74}
+
+ 74%|███████▎  | 92/125 [03:08<01:07,  2.03s/it]
+ 74%|███████▍  | 93/125 [03:10<01:04,  2.00s/it]
+                                                
+{'loss': 2.1041, 'grad_norm': 0.3972250819206238, 'learning_rate': 5.4545454545454545e-06, 'epoch': 0.74}
+
+ 74%|███████▍  | 93/125 [03:10<01:04,  2.00s/it]
+ 75%|███████▌  | 94/125 [03:12<01:03,  2.04s/it]
+                                                
+{'loss': 2.2311, 'grad_norm': 0.3646394610404968, 'learning_rate': 5.289256198347108e-06, 'epoch': 0.75}
+
+ 75%|███████▌  | 94/125 [03:12<01:03,  2.04s/it]
+ 76%|███████▌  | 95/125 [03:14<01:03,  2.11s/it]
+                                                
+{'loss': 2.3006, 'grad_norm': 0.2672775983810425, 'learning_rate': 5.12396694214876e-06, 'epoch': 0.76}
+
+ 76%|███████▌  | 95/125 [03:14<01:03,  2.11s/it]
+ 77%|███████▋  | 96/125 [03:16<00:59,  2.04s/it]
+                                                
+{'loss': 1.8493, 'grad_norm': 0.46061578392982483, 'learning_rate': 4.958677685950414e-06, 'epoch': 0.77}
+
+ 77%|███████▋  | 96/125 [03:16<00:59,  2.04s/it]
+ 78%|███████▊  | 97/125 [03:18<00:53,  1.91s/it]
+                                                
+{'loss': 2.4035, 'grad_norm': 0.5484866499900818, 'learning_rate': 4.793388429752067e-06, 'epoch': 0.78}
+
+ 78%|███████▊  | 97/125 [03:18<00:53,  1.91s/it]
+ 78%|███████▊  | 98/125 [03:20<00:53,  1.98s/it]
+                                                
+{'loss': 2.2538, 'grad_norm': 0.43890389800071716, 'learning_rate': 4.62809917355372e-06, 'epoch': 0.78}
+
+ 78%|███████▊  | 98/125 [03:20<00:53,  1.98s/it]
+ 79%|███████▉  | 99/125 [03:22<00:55,  2.14s/it]
+                                                
+{'loss': 1.9847, 'grad_norm': 0.27928251028060913, 'learning_rate': 4.462809917355372e-06, 'epoch': 0.79}
+
+ 79%|███████▉  | 99/125 [03:22<00:55,  2.14s/it]
+ 80%|████████  | 100/125 [03:24<00:51,  2.06s/it]
+                                                 
+{'loss': 1.8982, 'grad_norm': 0.40648153424263, 'learning_rate': 4.297520661157025e-06, 'epoch': 0.8}
+
+ 80%|████████  | 100/125 [03:24<00:51,  2.06s/it]
+ 81%|████████  | 101/125 [03:27<00:53,  2.22s/it]
+                                                 
+{'loss': 2.0583, 'grad_norm': 0.25376468896865845, 'learning_rate': 4.132231404958678e-06, 'epoch': 0.81}
+
+ 81%|████████  | 101/125 [03:27<00:53,  2.22s/it]
+ 82%|████████▏ | 102/125 [03:28<00:47,  2.09s/it]
+                                                 
+{'loss': 2.3198, 'grad_norm': 0.7469460964202881, 'learning_rate': 3.966942148760331e-06, 'epoch': 0.82}
+
+ 82%|████████▏ | 102/125 [03:28<00:47,  2.09s/it]
+ 82%|████████▏ | 103/125 [03:30<00:44,  2.00s/it]
+                                                 
+{'loss': 2.3372, 'grad_norm': 0.4772752821445465, 'learning_rate': 3.801652892561984e-06, 'epoch': 0.82}
+
+ 82%|████████▏ | 103/125 [03:30<00:44,  2.00s/it]
+ 83%|████████▎ | 104/125 [03:32<00:41,  1.99s/it]
+                                                 
+{'loss': 2.637, 'grad_norm': 0.4090002477169037, 'learning_rate': 3.6363636363636366e-06, 'epoch': 0.83}
+
+ 83%|████████▎ | 104/125 [03:32<00:41,  1.99s/it]
+ 84%|████████▍ | 105/125 [03:34<00:40,  2.03s/it]
+                                                 
+{'loss': 2.2411, 'grad_norm': 0.33567121624946594, 'learning_rate': 3.4710743801652895e-06, 'epoch': 0.84}
+
+ 84%|████████▍ | 105/125 [03:34<00:40,  2.03s/it]
+ 85%|████████▍ | 106/125 [03:36<00:37,  2.00s/it]
+                                                 
+{'loss': 2.2167, 'grad_norm': 0.36780989170074463, 'learning_rate': 3.3057851239669424e-06, 'epoch': 0.85}
+
+ 85%|████████▍ | 106/125 [03:36<00:37,  2.00s/it]
+ 86%|████████▌ | 107/125 [03:38<00:36,  2.04s/it]
+                                                 
+{'loss': 2.3621, 'grad_norm': 0.3038865923881531, 'learning_rate': 3.1404958677685953e-06, 'epoch': 0.86}
+
+ 86%|████████▌ | 107/125 [03:38<00:36,  2.04s/it]
+ 86%|████████▋ | 108/125 [03:40<00:34,  2.03s/it]
+                                                 
+{'loss': 1.872, 'grad_norm': 0.5712100863456726, 'learning_rate': 2.9752066115702483e-06, 'epoch': 0.86}
+
+ 86%|████████▋ | 108/125 [03:40<00:34,  2.03s/it]
+ 87%|████████▋ | 109/125 [03:43<00:33,  2.08s/it]
+                                                 
+{'loss': 2.2389, 'grad_norm': 0.3755659759044647, 'learning_rate': 2.809917355371901e-06, 'epoch': 0.87}
+
+ 87%|████████▋ | 109/125 [03:43<00:33,  2.08s/it]
+ 88%|████████▊ | 110/125 [03:45<00:31,  2.08s/it]
+                                                 
+{'loss': 2.1495, 'grad_norm': 0.3687834143638611, 'learning_rate': 2.644628099173554e-06, 'epoch': 0.88}
+
+ 88%|████████▊ | 110/125 [03:45<00:31,  2.08s/it]
+ 89%|████████▉ | 111/125 [03:47<00:29,  2.13s/it]
+                                                 
+{'loss': 2.1363, 'grad_norm': 0.32072651386260986, 'learning_rate': 2.479338842975207e-06, 'epoch': 0.89}
+
+ 89%|████████▉ | 111/125 [03:47<00:29,  2.13s/it]
+ 90%|████████▉ | 112/125 [03:49<00:28,  2.17s/it]
+                                                 
+{'loss': 2.2503, 'grad_norm': 0.2741272449493408, 'learning_rate': 2.31404958677686e-06, 'epoch': 0.9}
+
+ 90%|████████▉ | 112/125 [03:49<00:28,  2.17s/it]
+ 90%|█████████ | 113/125 [03:51<00:24,  2.05s/it]
+                                                 
+{'loss': 2.5831, 'grad_norm': 0.43478673696517944, 'learning_rate': 2.1487603305785124e-06, 'epoch': 0.9}
+
+ 90%|█████████ | 113/125 [03:51<00:24,  2.05s/it]
+ 91%|█████████ | 114/125 [03:53<00:22,  2.05s/it]
+                                                 
+{'loss': 2.2823, 'grad_norm': 0.35445573925971985, 'learning_rate': 1.9834710743801654e-06, 'epoch': 0.91}
+
+ 91%|█████████ | 114/125 [03:53<00:22,  2.05s/it]
+ 92%|█████████▏| 115/125 [03:55<00:21,  2.10s/it]
+                                                 
+{'loss': 2.2883, 'grad_norm': 0.3165743947029114, 'learning_rate': 1.8181818181818183e-06, 'epoch': 0.92}
+
+ 92%|█████████▏| 115/125 [03:55<00:21,  2.10s/it]
+ 93%|█████████▎| 116/125 [03:57<00:18,  2.01s/it]
+                                                 
+{'loss': 2.0929, 'grad_norm': 0.4422158896923065, 'learning_rate': 1.6528925619834712e-06, 'epoch': 0.93}
+
+ 93%|█████████▎| 116/125 [03:57<00:18,  2.01s/it]
+ 94%|█████████▎| 117/125 [03:59<00:16,  2.00s/it]
+                                                 
+{'loss': 1.9365, 'grad_norm': 0.3930673599243164, 'learning_rate': 1.4876033057851241e-06, 'epoch': 0.94}
+
+ 94%|█████████▎| 117/125 [03:59<00:16,  2.00s/it]
+ 94%|█████████▍| 118/125 [04:01<00:13,  1.90s/it]
+                                                 
+{'loss': 2.1457, 'grad_norm': 0.4905443489551544, 'learning_rate': 1.322314049586777e-06, 'epoch': 0.94}
+
+ 94%|█████████▍| 118/125 [04:01<00:13,  1.90s/it]
+ 95%|█████████▌| 119/125 [04:03<00:11,  2.00s/it]
+                                                 
+{'loss': 2.3176, 'grad_norm': 0.3305894136428833, 'learning_rate': 1.15702479338843e-06, 'epoch': 0.95}
+
+ 95%|█████████▌| 119/125 [04:03<00:11,  2.00s/it]
+ 96%|█████████▌| 120/125 [04:05<00:09,  1.92s/it]
+                                                 
+{'loss': 1.8172, 'grad_norm': 0.43231475353240967, 'learning_rate': 9.917355371900827e-07, 'epoch': 0.96}
+
+ 96%|█████████▌| 120/125 [04:05<00:09,  1.92s/it]
+ 97%|█████████▋| 121/125 [04:07<00:08,  2.11s/it]
+                                                 
+{'loss': 2.056, 'grad_norm': 0.28262588381767273, 'learning_rate': 8.264462809917356e-07, 'epoch': 0.97}
+
+ 97%|█████████▋| 121/125 [04:07<00:08,  2.11s/it]
+ 98%|█████████▊| 122/125 [04:10<00:06,  2.24s/it]
+                                                 
+{'loss': 2.1651, 'grad_norm': 0.2256728857755661, 'learning_rate': 6.611570247933885e-07, 'epoch': 0.98}
+
+ 98%|█████████▊| 122/125 [04:10<00:06,  2.24s/it]
+ 98%|█████████▊| 123/125 [04:12<00:04,  2.11s/it]
+                                                 
+{'loss': 1.9918, 'grad_norm': 0.3876246511936188, 'learning_rate': 4.958677685950413e-07, 'epoch': 0.98}
+
+ 98%|█████████▊| 123/125 [04:12<00:04,  2.11s/it]
+ 99%|█████████▉| 124/125 [04:14<00:02,  2.22s/it]
+                                                 
+{'loss': 2.0753, 'grad_norm': 0.33921486139297485, 'learning_rate': 3.3057851239669426e-07, 'epoch': 0.99}
+
+ 99%|█████████▉| 124/125 [04:14<00:02,  2.22s/it]
+100%|██████████| 125/125 [04:16<00:00,  2.25s/it]
+                                                 
+{'loss': 2.0779, 'grad_norm': 0.23312519490718842, 'learning_rate': 1.6528925619834713e-07, 'epoch': 1.0}
+
+100%|██████████| 125/125 [04:16<00:00,  2.25s/it]
+
+  0%|          | 0/100 [00:00<?, ?it/s][A
+
+  3%|▎         | 3/100 [00:00<00:06, 14.04it/s][A
+
+  5%|▌         | 5/100 [00:00<00:08, 11.20it/s][A
+
+  7%|▋         | 7/100 [00:00<00:07, 12.56it/s][A
+
+  9%|▉         | 9/100 [00:00<00:07, 12.01it/s][A
+
+ 12%|█▏        | 12/100 [00:00<00:06, 14.12it/s][A
+
+ 14%|█▍        | 14/100 [00:01<00:06, 13.72it/s][A
+
+ 16%|█▌        | 16/100 [00:01<00:06, 13.18it/s][A
+
+ 18%|█▊        | 18/100 [00:01<00:05, 14.54it/s][A
+
+ 20%|██        | 20/100 [00:01<00:05, 15.49it/s][A
+
+ 22%|██▏       | 22/100 [00:01<00:05, 14.06it/s][A
+
+ 24%|██▍       | 24/100 [00:01<00:05, 13.21it/s][A
+
+ 26%|██▌       | 26/100 [00:01<00:06, 11.86it/s][A
+
+ 28%|██▊       | 28/100 [00:02<00:05, 13.46it/s][A
+
+ 30%|███       | 30/100 [00:02<00:04, 14.80it/s][A
+
+ 32%|███▏      | 32/100 [00:02<00:04, 14.77it/s][A
+
+ 34%|███▍      | 34/100 [00:02<00:04, 13.67it/s][A
+
+ 36%|███▌      | 36/100 [00:02<00:04, 13.53it/s][A
+
+ 38%|███▊      | 38/100 [00:02<00:04, 13.14it/s][A
+
+ 40%|████      | 40/100 [00:03<00:04, 12.11it/s][A
+
+ 42%|████▏     | 42/100 [00:03<00:04, 12.39it/s][A
+
+ 45%|████▌     | 45/100 [00:03<00:04, 13.07it/s][A
+
+ 47%|████▋     | 47/100 [00:03<00:03, 14.34it/s][A
+
+ 49%|████▉     | 49/100 [00:03<00:03, 15.34it/s][A
+
+ 51%|█████     | 51/100 [00:03<00:03, 14.17it/s][A
+
+ 53%|█████▎    | 53/100 [00:03<00:03, 15.25it/s][A
+
+ 55%|█████▌    | 55/100 [00:03<00:02, 16.05it/s][A
+
+ 57%|█████▋    | 57/100 [00:04<00:02, 14.84it/s][A
+
+ 59%|█████▉    | 59/100 [00:04<00:03, 12.78it/s][A
+
+ 61%|██████    | 61/100 [00:04<00:02, 14.01it/s][A
+
+ 63%|██████▎   | 63/100 [00:04<00:03, 12.14it/s][A
+
+ 65%|██████▌   | 65/100 [00:04<00:02, 13.52it/s][A
+
+ 67%|██████▋   | 67/100 [00:04<00:02, 13.01it/s][A
+
+ 69%|██████▉   | 69/100 [00:05<00:02, 13.72it/s][A
+
+ 71%|███████   | 71/100 [00:05<00:02, 13.19it/s][A
+
+ 73%|███████▎  | 73/100 [00:05<00:01, 14.40it/s][A
+
+ 75%|███████▌  | 75/100 [00:05<00:01, 15.41it/s][A
+
+ 77%|███████▋  | 77/100 [00:05<00:01, 16.46it/s][A
+
+ 79%|███████▉  | 79/100 [00:05<00:01, 16.95it/s][A
+
+ 81%|████████  | 81/100 [00:05<00:01, 17.38it/s][A
+
+ 83%|████████▎ | 83/100 [00:05<00:01, 15.18it/s][A
+
+ 85%|████████▌ | 85/100 [00:06<00:00, 16.36it/s][A
+
+ 87%|████████▋ | 87/100 [00:06<00:00, 14.70it/s][A
+
+ 89%|████████▉ | 89/100 [00:06<00:00, 14.80it/s][A
+
+ 91%|█████████ | 91/100 [00:06<00:00, 15.08it/s][A
+
+ 93%|█████████▎| 93/100 [00:06<00:00, 15.66it/s][A
+
+ 95%|█████████▌| 95/100 [00:06<00:00, 13.85it/s][A
+
+ 97%|█████████▋| 97/100 [00:06<00:00, 13.28it/s][A
+
+100%|██████████| 100/100 [00:07<00:00, 12.35it/s][A
+                                                 
+
+                                                 
+[A{'eval_loss': 2.2397522926330566, 'eval_runtime': 7.3659, 'eval_samples_per_second': 13.576, 'eval_steps_per_second': 13.576, 'epoch': 1.0}
+
+100%|██████████| 125/125 [04:24<00:00,  2.25s/it]
+
+100%|██████████| 100/100 [00:07<00:00, 12.35it/s][A
+
+                                                 [A
+                                                 
+{'train_runtime': 264.3219, 'train_samples_per_second': 3.783, 'train_steps_per_second': 0.473, 'train_tokens_per_second': 1127.807, 'train_loss': 2.2277620029449463, 'epoch': 1.0}
+
+100%|██████████| 125/125 [04:24<00:00,  2.25s/it]
+100%|██████████| 125/125 [04:24<00:00,  2.11s/it]
+***** train metrics *****
+  epoch                    =        1.0
+  total_flos               = 11782340GF
+  train_loss               =     2.2278
+  train_runtime            = 0:04:24.32
+  train_samples            =       1000
+  train_samples_per_second =      3.783
+  train_steps_per_second   =      0.473
+  train_tokens_per_second  =   1127.807
+2026-08-24 23:51:19.412 | DEBUG    | __main__:main:992 - Training metrics: {'train_runtime': 264.3219, 'train_samples_per_second': 3.783, 'train_steps_per_second': 0.473, 'train_tokens_per_second': 1127.807, 'total_flos': 1.26511920185344e+16, 'train_loss': 2.2277620029449463, 'epoch': 1.0, 'train_samples': 1000}
+2026-08-24 23:51:19.412 | INFO     | __main__:main:993 - Saving model checkpoint to outputs/medical_project/sft/qwen25_7b_lora_1k_1gpu
+2026-08-24 23:51:19.870 | INFO     | __main__:main:1002 - *** Evaluate ***
+
+  0%|          | 0/100 [00:00<?, ?it/s]
+  3%|▎         | 3/100 [00:00<00:06, 14.12it/s]
+  5%|▌         | 5/100 [00:00<00:09, 10.17it/s]
+  7%|▋         | 7/100 [00:00<00:08, 10.91it/s]
+  9%|▉         | 9/100 [00:00<00:08, 10.81it/s]
+ 12%|█▏        | 12/100 [00:00<00:06, 13.04it/s]
+ 14%|█▍        | 14/100 [00:01<00:06, 12.87it/s]
+ 16%|█▌        | 16/100 [00:01<00:06, 12.63it/s]
+ 18%|█▊        | 18/100 [00:01<00:05, 13.93it/s]
+ 20%|██        | 20/100 [00:01<00:05, 14.76it/s]
+ 22%|██▏       | 22/100 [00:01<00:05, 13.59it/s]
+ 24%|██▍       | 24/100 [00:01<00:05, 12.86it/s]
+ 26%|██▌       | 26/100 [00:02<00:06, 11.64it/s]
+ 28%|██▊       | 28/100 [00:02<00:05, 13.14it/s]
+ 30%|███       | 30/100 [00:02<00:04, 14.50it/s]
+ 32%|███▏      | 32/100 [00:02<00:04, 14.50it/s]
+ 34%|███▍      | 34/100 [00:02<00:04, 13.49it/s]
+ 36%|███▌      | 36/100 [00:02<00:04, 13.30it/s]
+ 38%|███▊      | 38/100 [00:02<00:04, 12.93it/s]
+ 40%|████      | 40/100 [00:03<00:05, 11.91it/s]
+ 42%|████▏     | 42/100 [00:03<00:04, 12.17it/s]
+ 45%|████▌     | 45/100 [00:03<00:04, 12.83it/s]
+ 47%|████▋     | 47/100 [00:03<00:03, 14.01it/s]
+ 49%|████▉     | 49/100 [00:03<00:03, 14.87it/s]
+ 51%|█████     | 51/100 [00:03<00:03, 13.78it/s]
+ 53%|█████▎    | 53/100 [00:04<00:03, 14.91it/s]
+ 55%|█████▌    | 55/100 [00:04<00:02, 15.65it/s]
+ 57%|█████▋    | 57/100 [00:04<00:03, 14.22it/s]
+ 59%|█████▉    | 59/100 [00:04<00:03, 12.60it/s]
+ 61%|██████    | 61/100 [00:04<00:02, 13.80it/s]
+ 63%|██████▎   | 63/100 [00:04<00:03, 11.97it/s]
+ 65%|██████▌   | 65/100 [00:04<00:02, 13.29it/s]
+ 67%|██████▋   | 67/100 [00:05<00:02, 13.01it/s]
+ 69%|██████▉   | 69/100 [00:05<00:02, 13.65it/s]
+ 71%|███████   | 71/100 [00:05<00:02, 13.10it/s]
+ 73%|███████▎  | 73/100 [00:05<00:01, 14.17it/s]
+ 75%|███████▌  | 75/100 [00:05<00:01, 14.99it/s]
+ 77%|███████▋  | 77/100 [00:05<00:01, 15.89it/s]
+ 79%|███████▉  | 79/100 [00:05<00:01, 16.28it/s]
+ 81%|████████  | 81/100 [00:05<00:01, 16.52it/s]
+ 83%|████████▎ | 83/100 [00:06<00:01, 14.52it/s]
+ 85%|████████▌ | 85/100 [00:06<00:00, 15.43it/s]
+ 87%|████████▋ | 87/100 [00:06<00:00, 14.09it/s]
+ 89%|████████▉ | 89/100 [00:06<00:00, 14.30it/s]
+ 91%|█████████ | 91/100 [00:06<00:00, 14.57it/s]
+ 93%|█████████▎| 93/100 [00:06<00:00, 15.37it/s]
+ 95%|█████████▌| 95/100 [00:06<00:00, 13.61it/s]
+ 97%|█████████▋| 97/100 [00:07<00:00, 13.08it/s]
+ 99%|█████████▉| 99/100 [00:07<00:00, 14.57it/s]
+100%|██████████| 100/100 [00:07<00:00, 13.45it/s]
+***** eval metrics *****
+  epoch                   =        1.0
+  eval_loss               =     2.2396
+  eval_runtime            = 0:00:07.59
+  eval_samples            =        100
+  eval_samples_per_second =     13.167
+  eval_steps_per_second   =     13.167
+  perplexity              =     9.3896
+2026-08-24 23:51:27.471 | DEBUG    | __main__:main:1015 - Eval metrics: {'eval_loss': 2.2395992279052734, 'eval_runtime': 7.595, 'eval_samples_per_second': 13.167, 'eval_steps_per_second': 13.167, 'epoch': 1.0, 'eval_samples': 100, 'perplexity': 9.389567456655806}
+[rank0]:[W824 23:51:27.217770755 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
