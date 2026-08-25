@@ -342,6 +342,21 @@ def disable_unused_deepspeed_import():
     accelerate_other.is_deepspeed_available = lambda: False
 
 
+def cleanup_distributed_process_group():
+    """Release the NCCL process group created by ``torchrun`` when needed.
+
+    ``Trainer`` initializes PyTorch distributed state for a ``torchrun`` job,
+    but it does not always tear it down before this script exits.  Explicitly
+    destroying an initialized group prevents NCCL's resource-leak warning.
+    No barrier is used here: calling this from ``finally`` must not turn a
+    failed worker into a shutdown hang.
+    """
+    import torch.distributed as dist
+
+    if dist.is_available() and dist.is_initialized():
+        dist.destroy_process_group()
+
+
 def main():
     parser = HfArgumentParser((ModelArguments, DataArguments, Seq2SeqTrainingArguments, ScriptArguments))
 
@@ -1019,4 +1034,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        cleanup_distributed_process_group()
