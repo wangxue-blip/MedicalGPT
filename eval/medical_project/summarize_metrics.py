@@ -13,6 +13,26 @@ def load_json(path):
         return json.load(f)
 
 
+def evaluation_label(path, data):
+    """Use the run label embedded in a metric filename when available.
+
+    Individual evaluators do not all use the same ``model`` field: perplexity
+    records the adapter directory name, while structure checks record the
+    human-readable run label.  The common filename suffix is the stable join
+    key produced by ``eval_model_suite.py``.
+    """
+    prefixes = (
+        "ppl_",
+        "qa_similarity_",
+        "structure_safety_",
+        "ceval_medical_",
+    )
+    for prefix in prefixes:
+        if path.stem.startswith(prefix):
+            return path.stem[len(prefix) :]
+    return data.get("model")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Summarize medical project evaluation metrics.")
     parser.add_argument("--metrics_dir", default="outputs/medical_project/eval")
@@ -29,10 +49,12 @@ def main():
         if path.name in {"summary_metrics.json"}:
             continue
         data = load_json(path)
-        model = data.get("model")
+        model = evaluation_label(path, data)
         if not model:
             continue
         row = by_model.setdefault(model, {"model": model})
+        if data.get("model"):
+            row.setdefault("model_source", data["model"])
         if path.name.startswith("ppl_"):
             row["eval_loss"] = data.get("eval_loss")
             row["ppl"] = data.get("ppl")
