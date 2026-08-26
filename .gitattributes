@@ -1,1 +1,2 @@
 data_processed/** filter=lfs diff=lfs merge=lfs -text
+outputs/medical_project/** filter=lfs diff=lfs merge=lfs -text
