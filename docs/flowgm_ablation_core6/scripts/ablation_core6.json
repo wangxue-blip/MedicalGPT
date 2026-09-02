@@ -1,0 +1,12 @@
+{
+  "tasks": ["white-stage2", "malware-Cridex-stage2", "apt"],
+  "experiments": [
+    {"id":"E0_r16_qkv_prompt0", "rank":16, "target_modules":"query_key_value", "train_on_prompt":false},
+    {"id":"E1_r8_qkv_prompt0",  "rank":8,  "target_modules":"query_key_value", "train_on_prompt":false},
+    {"id":"E2_r32_qkv_prompt0", "rank":32, "target_modules":"query_key_value", "train_on_prompt":false},
+    {"id":"E3_r16_qkv_dense_prompt0", "rank":16, "target_modules":"query_key_value,dense", "train_on_prompt":false},
+    {"id":"E4_r16_attn_mlp_prompt0", "rank":16, "target_modules":"query_key_value,dense,dense_h_to_4h,dense_4h_to_h", "train_on_prompt":false},
+    {"id":"E5_r16_qkv_prompt1", "rank":16, "target_modules":"query_key_value", "train_on_prompt":true}
+  ],
+  "fixed": {"seed":42, "batch_size":1, "grad_accum":4, "max_len":2048, "eval_ratio":0.1, "eval_limit":2000}
+}
