@@ -260,6 +260,7 @@ def main():
                     help="逗号分隔，如 query_key_value,dense,dense_h_to_4h,dense_4h_to_h")
     ap.add_argument("--limit", type=int, default=0, help="只取前 N 条，冒烟测试用")
     ap.add_argument("--dry-run", action="store_true", help="只检查环境与数据")
+    ap.add_argument("--resume", action="store_true", help="从 output 下最新 checkpoint 恢复")
     args = ap.parse_args()
 
     # ---- 预检 ----
@@ -384,7 +385,13 @@ def main():
         ),
         compute_metrics=build_compute_metrics(tok) if eval_ds else None,
     )
-    trainer.train()
+    resume_checkpoint = None
+    if args.resume:
+        from transformers.trainer_utils import get_last_checkpoint
+        resume_checkpoint = get_last_checkpoint(args.output)
+        if resume_checkpoint:
+            print("从 checkpoint 恢复:", resume_checkpoint)
+    trainer.train(resume_from_checkpoint=resume_checkpoint)
     trainer.save_model(os.path.join(args.output, "final"))
     print("完成 ->", args.output)
 

@@ -19,7 +19,7 @@ def main():
    return True
   cmd=[sys.executable,os.path.join(os.path.dirname(__file__),'finetune_glm4_lora.py'),'--model',a.model,'--data',d,'--output',out,'--peft-key',task,'--plan',a.plan,'--lora-rank',str(e['rank']),'--target-modules',e['target_modules'],'--eval-ratio',str(c['fixed']['eval_ratio']),'--eval-limit',str(c['fixed'].get('eval_limit',0)),'--do-eval']
   if e['train_on_prompt']: cmd.append('--train-on-prompt')
-  cmd += ['--batch-size',str(c['fixed']['batch_size']),'--grad-accum',str(c['fixed']['grad_accum']),'--max-len',str(c['fixed']['max_len']),'--seed',str(c['fixed']['seed'])]
+  cmd += ['--batch-size',str(c['fixed']['batch_size']),'--grad-accum',str(c['fixed']['grad_accum']),'--max-len',str(c['fixed']['max_len']),'--seed',str(c['fixed']['seed']),'--resume']
   print('[GPU %s] %s/%s: %s' % (g[i%len(g)],e['id'],task,' '.join(cmd)), flush=True)
   if not a.dry_run:
    try:
