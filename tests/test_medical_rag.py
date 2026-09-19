@@ -557,3 +557,270 @@ def test_pipeline_refuses_when_evidence_is_empty():
     assert result["refused"] is True
     assert result["prompt"] == "", "拒答时不应组装 prompt"
     assert result["verification"]["skipped"] is True
+
+
+# --------------------------------------------------------------------------
+# 回归：审查确认的缺陷
+# --------------------------------------------------------------------------
+def test_chunker_keeps_short_section_instead_of_dropping_it():
+    """短于 min_chars 的 section 必须保留，不能整段从索引里消失。
+
+    早先 _flush_section 直接 continue 丢弃短 child，结果是"孕妇禁用本品"这类
+    20~35 字的关键禁忌句只存在于 parent_text 里，任何 query 都召不回它。
+    """
+    doc = RawDoc(
+        doc_id="short-1",
+        doc_title="说明书",
+        source_tier=TIER_DRUG_LABEL,
+        blocks=[
+            {"text": "第一章 总则", "is_heading": True, "heading_level": 1},
+            {"text": "孕妇禁用。"},
+        ],
+    )
+    chunks = StructureAwareChunker().chunk_document(doc)
+    assert chunks, "短 section 不能产出 0 条 chunk"
+    assert any("孕妇禁用" in chunk.text for chunk in chunks)
+
+
+def test_chunker_merges_short_tail_child_into_previous_one():
+    """贪心打包后的尾组短于 min_chars 时要并入上一条，而不是丢掉。"""
+    body = "甲" * 100 + "。" + "乙" * 100 + "。" + "丙" * 100 + "。" + "妊娠期妇女禁用本品。"
+    doc = RawDoc(doc_id="tail-1", doc_title="说明书", source_tier=TIER_DRUG_LABEL,
+                 blocks=[{"text": body}])
+    chunks = StructureAwareChunker(child_chars=320, child_overlap=64,
+                                   parent_chars=1200, min_chars=40).chunk_document(doc)
+    assert any("妊娠期妇女禁用本品" in chunk.text for chunk in chunks)
+    # 合并时要消掉重叠，同一句话不能在一条 chunk 里出现两遍
+    for chunk in chunks:
+        assert chunk.text.count("妊娠期妇女禁用本品") <= 1
+
+
+def test_chunker_does_not_treat_dose_or_threshold_lines_as_headings():
+    """以数字开头的剂量/阈值行不是标题：判成标题就等于把它从索引里删掉。"""
+    from medical_rag.chunker import _looks_like_heading
+
+    for line in ["2型糖尿病患者血压应控制在130/80mmHg以下",
+                 "100mg 阿司匹林每日一次长期维持",
+                 "1．阿司匹林75~100mg 每日1次"]:
+        assert _looks_like_heading(line) is False, line
+    # 真正的标题仍然要能认出来
+    assert _looks_like_heading("第三章 药物治疗") is True
+    assert _looks_like_heading("3.1 一线用药") is True
+
+    doc = RawDoc(doc_id="dose-1", doc_title="指南", source_tier=TIER_GUIDELINE,
+                 blocks=[{"text": "2型糖尿病患者血压应控制在130/80mmHg以下"}])
+    chunks = StructureAwareChunker(min_chars=10).chunk_document(doc)
+    assert any("130/80mmHg" in chunk.text for chunk in chunks), "血压目标值必须进索引"
+
+
+def test_fallback_heading_does_not_pop_numbered_ancestors():
+    """无编号小标题不能把带编号的祖先章节整栈弹掉。"""
+    doc = RawDoc(
+        doc_id="hd-1",
+        doc_title="指南",
+        source_tier=TIER_GUIDELINE,
+        blocks=[
+            {"text": "第四章 口服降糖药", "is_heading": True, "heading_level": 1, "page": 10},
+            {"text": "双胍类", "is_heading": True, "page": 10},
+            {"text": "二甲双胍为一线用药，应从小剂量开始并逐步加量以减轻胃肠道反应。", "page": 10},
+        ],
+    )
+    chunks = StructureAwareChunker(min_chars=10).chunk_document(doc)
+    assert chunks
+    assert chunks[0].section_path == ["第四章 口服降糖药", "双胍类"]
+
+
+def test_evidence_level_does_not_flip_class_three_into_class_one():
+    """III / II 类推荐不能被读成 I 类——那是把"有害，不应实施"翻成"强烈推荐"。"""
+    from medical_rag.chunker import evidence_levels_in
+
+    assert evidence_levels_in("（III类推荐）") == ["III"]
+    assert evidence_levels_in("（II类推荐）") == ["II"]
+    assert evidence_levels_in("（IIa类推荐）") == ["IIa"]
+    assert evidence_levels_in("（I类推荐）") == ["I"]
+    assert evidence_levels_in("（Ⅲ类推荐）") == ["III"]
+
+    doc = RawDoc(doc_id="ev-1", doc_title="指南2", source_tier=TIER_GUIDELINE, blocks=[
+        {"text": "对于出血高危患者，不建议常规联合三联抗栓治疗（III类推荐），因为出血风险超过获益。"},
+    ])
+    chunks = StructureAwareChunker(min_chars=10).chunk_document(doc)
+    assert chunks[0].evidence_level == "III"
+
+
+def test_evidence_level_is_blank_when_parent_mixes_classes():
+    """父块里同时有 I 类与 III 类时，无标记 child 宁可留空也不能瞎继承。"""
+    from medical_rag.chunker import _resolve_evidence_level
+
+    parent = "应尽早启动他汀治疗（I类推荐）。对于出血高危患者不建议三联抗栓（III类推荐）。"
+    assert _resolve_evidence_level("某个没有标记的子块。", parent, []) == ""
+    # 只有一种标记时照常继承，否则检索命中段落中段的 child 会丢掉强度信息
+    single = "应尽早启动他汀治疗（I类推荐），并长期随访监测肝酶。"
+    assert _resolve_evidence_level("某个没有标记的子块。", single, []) == "I"
+
+
+def test_verifier_out_of_range_citation_does_not_count_as_recall():
+    """编号全靠编的答案不能拿到 citation_recall = 1.0。"""
+    hits = [make_hit("二甲双胍用于2型糖尿病。", chunk_id="v1"),
+            make_hit("肾功能不全者慎用。", chunk_id="v2")]
+    result = CitationVerifier().verify(
+        "二甲双胍能治愈糖尿病并逆转肾损伤[7]。它还能显著改善认知功能与寿命[8]。", hits
+    )
+    assert result["citation_precision"] == 0.0
+    assert result["citation_recall"] == 0.0
+    assert len(result["fabricated_citations"]) == 2
+
+
+def test_verifier_flags_dose_whose_unit_was_altered():
+    """单位被篡改（0.5g -> 0.5mg，差 1000 倍）必须落进 dose_violations。"""
+    evidence = "二甲双胍缓释片起始剂量为每次0.5g，每日1次，随晚餐服用。"
+    hits = [make_hit(evidence, TIER_DRUG_LABEL)]
+    result = CitationVerifier(dose_exempt=True).verify(
+        "二甲双胍缓释片起始剂量为每次0.5mg，每日1次，随晚餐服用[1]。", hits
+    )
+    assert result["dose_violations"]
+    assert result["exempted_doses"] == []
+
+
+def test_verifier_rejects_dose_number_borrowed_from_non_dose_context():
+    """原文里的病型编号 / 化验阈值不能给凭空编的剂量做担保。"""
+    evidence = ("二甲双胍缓释片起始剂量为每次0.5g，每日1次，随晚餐服用。"
+                "2型糖尿病患者eGFR低于30时禁用。")
+    hits = [make_hit(evidence, TIER_DRUG_LABEL)]
+    for answer in ["二甲双胍缓释片起始剂量为每次2片，每日1次，随晚餐服用[1]。",
+                   "二甲双胍缓释片起始剂量为每次30mg，每日1次，随晚餐服用[1]。"]:
+        result = CitationVerifier(dose_exempt=True).verify(answer, hits)
+        assert result["dose_violations"], answer
+        assert result["exempted_doses"] == [], answer
+
+
+def test_should_refuse_blocks_chunk_unrelated_to_query():
+    """与 query 完全无关的 chunk 必须被闸门拦下——闸门不能建立在归一化分上。"""
+    from medical_rag.verifier import DEFAULT_MIN_SCORE
+
+    hit = make_hit("完全不相关的内容，今天天气很好适合散步。", TIER_CONSULTATION, score=0.0163)
+    apply_authority_boost([hit])
+    # final_score 被归一化抬到 1.0 以上，正是它不能用来当闸门判据的原因
+    assert hit.final_score > 1.0
+    assert should_refuse([hit], min_score=DEFAULT_MIN_SCORE, min_hits=1,
+                         query="二甲双胍肾功能不好还能用吗") is True
+
+    good = make_hit("估算肾小球滤过率低于30的患者禁用二甲双胍，肾功能不全者应减量。",
+                    TIER_GUIDELINE, score=0.0163, chunk_id="ok")
+    apply_authority_boost([good])
+    assert should_refuse([good], min_score=DEFAULT_MIN_SCORE, min_hits=1,
+                         query="二甲双胍肾功能不好还能用吗") is False
+
+
+def test_dense_index_load_without_chunks_is_refused(tmp_path):
+    """不传 chunks 的 load 不能返回 True 却留下一个空索引。"""
+    from medical_rag.index import DenseIndex
+
+    chunks = [make_chunk("d-%d" % i, "第%d条内容，二甲双胍与糖尿病。" % i) for i in range(4)]
+    index = DenseIndex()
+    index.build(chunks)
+    index.save(str(tmp_path))
+
+    probe = DenseIndex()
+    assert probe.load(str(tmp_path)) is False, "拿不到语料就不能声称加载成功"
+    assert probe.search("糖尿病", topk=3) == []
+
+    # 传了 chunks 才算数
+    ok = DenseIndex()
+    assert ok.load(str(tmp_path), chunks=chunks) is True
+    assert ok.size == len(chunks)
+    assert ok.search("糖尿病", topk=3)
+
+
+def test_from_chunks_does_not_load_reranker_weights(monkeypatch):
+    """from_chunks 必须是惰性的：构造期不能把交叉编码器的权重拉起来。"""
+    import types
+
+    from medical_rag.pipeline import _demo_chunks
+
+    calls = []
+    fake = types.ModuleType("sentence_transformers")
+
+    class _CrossEncoder(object):
+        def __init__(self, *args, **kwargs):
+            calls.append(args)
+
+        def predict(self, *args, **kwargs):
+            return [0.0]
+
+    class _SentenceTransformer(object):
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("测试环境不加载稠密模型")
+
+    fake.CrossEncoder = _CrossEncoder
+    fake.SentenceTransformer = _SentenceTransformer
+    monkeypatch.setitem(sys.modules, "sentence_transformers", fake)
+
+    MedicalRAG.from_chunks(_demo_chunks())
+    assert calls == [], "构造期不应实例化 CrossEncoder"
+
+
+# --------------------------------------------------------------------------
+# 术语表：上位词 / 反义词不得被归一成同一个概念
+# --------------------------------------------------------------------------
+# 逐组比对"别名是不是自身规范名的子串"会产出 39 条合法命中（肥胖/肥胖症、
+# 卒中/脑卒中、肌酐/血肌酐……），当硬断言只会天天误报。真正要守住的是下面这批
+# "归一过去就是临床错误"的配对，所以直接把它们写成显式清单。
+MUST_STAY_DISTINCT = [
+    ("酒精性脂肪肝", "非酒精性脂肪性肝病"),   # 病因、干预、预后完全不同
+    ("NT-proBNP", "B型利钠肽"),             # 诊断切点差一个数量级
+    ("腹膜透析", "血液透析"),
+    ("睡眠障碍", "失眠症"),                  # 上位类别含 OSA / 不宁腿
+    ("胃溃疡", "十二指肠溃疡"),              # 随访策略不同
+    ("STEMI", "心肌梗死"),                   # 再灌注路径不同
+    ("口眼歪斜", "面神经麻痹"),              # 也是卒中的典型表述
+    ("功能性肠病", "肠易激综合征"),
+    ("老年痴呆", "阿尔茨海默病"),            # 会吞掉血管性痴呆、路易体痴呆
+    ("透析", "血液透析"),
+    ("脂肪肝", "非酒精性脂肪性肝病"),
+]
+
+
+def test_terminology_keeps_clinically_distinct_concepts_apart():
+    term = Terminology.default()
+    for surface, must_not_become in MUST_STAY_DISTINCT:
+        assert term.normalize(surface) != must_not_become, (surface, must_not_become)
+        assert must_not_become not in term.terms_in(surface), (surface, must_not_become)
+
+
+def test_terminology_still_normalizes_true_synonyms():
+    """收紧词表不能把真正的同义关系也误删。"""
+    term = Terminology.default()
+    assert term.normalize("非酒精性脂肪肝") == "非酒精性脂肪性肝病"
+    assert term.normalize("血透") == "血液透析"
+    assert term.normalize("急性心梗") == "心肌梗死"
+    assert term.normalize("BNP") == "B型利钠肽"
+
+
+def test_terminology_skips_hypernym_hit_behind_negation_prefix():
+    """命中区间左边紧邻"非"时跳过：否则"非 A"会被标成"A"。"""
+    term = Terminology([["小细胞肺癌", "SCLC"]])
+    assert term.terms_in("非小细胞肺癌的一线治疗") == []
+    assert term.terms_in("小细胞肺癌的一线治疗") == ["小细胞肺癌"]
+
+
+# --------------------------------------------------------------------------
+# PDF：表格不得同时以原子块和拍扁正文两种形态入库
+# --------------------------------------------------------------------------
+def test_pdf_table_cells_do_not_also_appear_as_text_blocks():
+    from medical_rag.parsers import _drop_table_echo, _make_block
+
+    table = _make_block(
+        "| 药物 | 起始剂量 | 最大日剂量 |\n| --- | --- | --- |\n"
+        "| 二甲双胍 | 0.5g 每日2次 | 2.0g |",
+        page=3,
+        content_type=CONTENT_TABLE,
+    )
+    text_blocks = [
+        _make_block("药物", page=3),
+        _make_block("二甲双胍", page=3),
+        _make_block("0.5g 每日2次", page=3),
+        _make_block("本节讨论二甲双胍在肾功能不全患者中的剂量调整原则与监测要求。", page=3),
+    ]
+    kept = _drop_table_echo(text_blocks, [table])
+    assert len(kept) == 1, "表格单元格的拍扁副本必须被丢掉"
+    assert "剂量调整原则" in kept[0]["text"], "正文不能被误删"

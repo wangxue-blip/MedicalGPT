@@ -287,7 +287,8 @@ def parse_args():
     parser.add_argument("--terminology", default="", help="外部术语表 JSONL")
     parser.add_argument("--device", default="cpu", help="cpu / cuda")
 
-    parser.add_argument("--min_score", type=float, default=0.0, help="拒答分数阈值")
+    parser.add_argument("--min_score", type=float, default=0.10,
+                        help="拒答闸门的最低绝对相关度(0~1)，0 表示关闭闸门")
     parser.add_argument("--min_hits", type=int, default=1, help="拒答命中数下限")
     parser.add_argument("--support_threshold", type=float, default=0.62, help="引用支持度阈值")
     parser.add_argument("--no_dose_exempt", action="store_true", help="关闭剂量豁免，任何剂量句都算违规")

@@ -233,7 +233,23 @@ def apply_authority_boost(
         authority = float(getattr(chunk, "authority", 0.3) or 0.0)
         recency = recency_score(getattr(chunk, "version", "") or "")
         hit.final_score = base + authority_weight * authority + recency_weight * recency
+        # 归一化前的语义分单独留一份。final_score 里的 base 是按候选集归一过的
+        # （第一名恒为 1.0），任何"绝对相关度"判断——尤其是拒答闸门——都不能读它。
+        # 详见 verifier.absolute_relevance。
+        setattr(hit, ABSOLUTE_SCORE_ATTR, _absolute_base(hit))
     return sorted(hits, key=lambda h: -h.final_score)
+
+
+# 挂在 RetrievalHit 上的额外属性名。schema.RetrievalHit 是冻结的数据契约，
+# 不能加字段，所以用 setattr 附着；读取方一律走 getattr(hit, ..., None)。
+ABSOLUTE_SCORE_ATTR = "absolute_score"
+
+
+def _absolute_base(hit: RetrievalHit) -> float:
+    """未经集合归一的语义分：有精排分走 sigmoid（绝对量纲），否则用原始融合分。"""
+    if hit.rerank_score is not None:
+        return _sigmoid(float(hit.rerank_score))
+    return float(hit.score)
 
 
 def explain_boost(hit: RetrievalHit) -> Dict[str, float]:
@@ -243,6 +259,8 @@ def explain_boost(hit: RetrievalHit) -> Dict[str, float]:
         "rerank_score": None if hit.rerank_score is None else round(float(hit.rerank_score), 6),
         "authority": round(float(getattr(hit.chunk, "authority", 0.3) or 0.0), 6),
         "recency": round(recency_score(getattr(hit.chunk, "version", "") or ""), 6),
+        # 归一化前的语义分：排查"为什么这条没被拒答闸门拦下"时要看的是它，不是 final_score
+        "absolute_score": round(float(getattr(hit, ABSOLUTE_SCORE_ATTR, hit.score) or 0.0), 6),
         "final_score": round(float(hit.final_score), 6),
     }
 

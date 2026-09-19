@@ -617,7 +617,11 @@ class DenseIndex(BaseIndex):
         return str(out)
 
     def load(self, dirpath: str, chunks: Optional[List[Chunk]] = None) -> bool:
-        """装载缓存。chunk_id 列表不一致时拒绝加载并返回 False，由调用方重建。"""
+        """装载缓存。chunk_id 列表不一致时拒绝加载并返回 False，由调用方重建。
+
+        ``chunks`` 实际上是必需的：索引自身没有语料时无法校验一致性，也无法把
+        向量对应回 chunk，此时直接返回 False 而不是假装装载成功。
+        """
         out = Path(dirpath)
         meta_path = out / "meta.json"
         if not meta_path.exists():
@@ -630,18 +634,27 @@ class DenseIndex(BaseIndex):
             logger.warning("DenseIndex 缓存 meta 损坏，忽略: %s", exc)
             return False
 
-        target = list(chunks) if chunks is not None else self.chunks
-        if target:
-            cached_ids = list(meta.get("chunk_ids") or [])
-            current_ids = [c.chunk_id for c in target]
-            if cached_ids != current_ids:
-                logger.warning(
-                    "DenseIndex 缓存与当前语料不匹配(缓存 %d 条 / 当前 %d 条)，拒绝加载并重建",
-                    len(cached_ids), len(current_ids),
-                )
-                return False
-            self.chunks = target
-            self._chunk_ids = current_ids
+        # 一致性校验必须在**任何**路径上都跑到。早先这一段被包在 `if target:` 里，
+        # 于是 `DenseIndex().load(dir)`（不传 chunks）会跳过整段校验、也从不给
+        # self.chunks 赋值：函数返回 True，但 search() 第一行 `if not self.chunks`
+        # 直接短路，dense 这一路静默死掉，只剩 bm25+term，排序整体变差且无任何报错。
+        cached_ids = list(meta.get("chunk_ids") or [])
+        target = list(chunks) if chunks is not None else list(self.chunks)
+        if not target:
+            logger.warning(
+                "DenseIndex.load 未拿到语料（chunks 为空且索引自身无 chunk），"
+                "无法校验缓存一致性，拒绝加载并重建：请传入 chunks"
+            )
+            return False
+        current_ids = [c.chunk_id for c in target]
+        if cached_ids != current_ids:
+            logger.warning(
+                "DenseIndex 缓存与当前语料不匹配(缓存 %d 条 / 当前 %d 条)，拒绝加载并重建",
+                len(cached_ids), len(current_ids),
+            )
+            return False
+        self.chunks = target
+        self._chunk_ids = current_ids
 
         self._init_backend()
         cached_dense = bool(meta.get("dense"))

@@ -118,6 +118,24 @@ _NUM_HEADING_RE = re.compile(
     r")"
 )
 
+# 计量表达：带剂量/血压/检验阈值/数值区间的行一律不是标题。
+# PDF 表格行与指南里的剂量行都以数字开头，光看"数字前缀"会把它们整条吞掉
+# （标题 block 只压栈、不产出 chunk），而这正是最该被召回的那类内容。
+_MEASURE_HINT_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*"
+    r"(?:mg|毫克|μg|ug|微克|IU|国际单位|ml|毫升|g|克|kg|公斤|mmHg|mmol|μmol|umol|mol|"
+    r"%|‰|片|粒|颗|袋|支|滴|喷)"
+    r"|\d\s*[~～至\-–]\s*\d"
+    r"|\d\s*/\s*\d"
+    r"|/\s*(?:L|l|kg|min|天|日|次|分)"
+)
+
+# 兜底识别出的标题没有可靠层级。返回 1 会让 chunker._push_heading 把整个标题栈
+# 弹空（它弹掉所有 level >= 当前值的条目），于是 "第四章 口服降糖药 > 双胍类" 的
+# 祖先章节全丢，section_path 只剩 "双胍类"，引用坐标直接指错。改为一个比任何
+# 编号层级都深的值，使兜底标题只替换同为兜底级的标题。
+FALLBACK_HEADING_LEVEL = 9
+
 # 句末标点出现在行内就说明这是正文而不是标题
 _SENT_END_RE = re.compile(r"[。！？；!?;]")
 
@@ -183,6 +201,10 @@ def _looks_like_heading(text: str, width_hint: Optional[int] = None) -> Tuple[bo
     text = normalize_text(text)
     if not text or len(text) >= HEADING_MAX_CHARS:
         return False, 0
+    # 计量表达先否决：数字前缀是标题的强信号，但"1. 阿司匹林75~100mg 每日1次"
+    # 和 PDF 表格行同样以数字开头，误判的代价是整行内容不进索引。
+    if _MEASURE_HINT_RE.search(text):
+        return False, 0
     if _NUM_HEADING_RE.match(text):
         return True, _heading_level_from_prefix(text)
     if len(text) < 2 or _SENT_END_RE.search(text) or _ASCII_SENT_END_RE.search(text):
@@ -191,7 +213,7 @@ def _looks_like_heading(text: str, width_hint: Optional[int] = None) -> Tuple[bo
         return False, 0
     if width_hint and len(text) > max(0.7 * width_hint, 12):
         return False, 0
-    return True, 1
+    return True, FALLBACK_HEADING_LEVEL
 
 
 def _make_block(
@@ -391,17 +413,83 @@ def _pdf_table_blocks(path: str) -> Dict[int, List[Dict[str, Any]]]:
     return tables_by_page
 
 
+def _table_cell_texts(table_blocks: List[Dict[str, Any]]) -> List[str]:
+    """把表格块还原成单元格文本集合，用于识别正文里的表格回声。"""
+    cells = set()  # type: set
+    for block in table_blocks or []:
+        for line in (block.get("text") or "").splitlines():
+            line = line.strip()
+            if not line.startswith("|"):
+                continue
+            for cell in line.strip("|").split("|"):
+                cell = re.sub(r"\s+", "", cell.replace("\\|", "|"))
+                # 分隔行（---）和单字符单元格不能用来做匹配，否则会误删正文
+                if len(cell) >= 2 and set(cell) != {"-"}:
+                    cells.add(cell)
+    # 长单元格优先消除，避免短单元格先把长单元格拆碎导致覆盖率算低
+    return sorted(cells, key=len, reverse=True)
+
+
+# 正文块里有多大比例的字符能被表格单元格解释，就判定它是表格的拍扁副本。
+TABLE_ECHO_COVERAGE = 0.8
+
+
+def _drop_table_echo(
+    text_blocks: List[Dict[str, Any]], table_blocks: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """丢掉那些其实是表格被拍扁后混进正文的 block。
+
+    ``page.get_text("text")`` 返回整页文本，表格单元格的文字都在里面；而表格又被
+    ``_pdf_table_blocks`` 单独抽成一个原子 block。两者直接拼接的结果是同一张剂量表
+    入库两份：一份完整（content_type=table），一份被 chunker 按 320 字滑窗切碎成
+    普通文本，行标签（药名、肾功能分层）和数值落到了不同 chunk 里，而且
+    content_type=text，检索和生成两侧都看不出它来自表格。模型完全可能引用那份被
+    打散的副本，把 A 行的剂量安到 B 行的人群上——这正是本模块 docstring 说要避免的
+    "把剂量表拆成一堆无意义的数字"。
+
+    这里用页内文本去重而不是 bbox 排除：pdfplumber 与 pymupdf 的坐标系一致性依赖
+    页面旋转与 MediaBox 原点，跨文档并不稳定；而单元格文本一定同时出现在两侧，
+    按覆盖率比对是无坐标、可解释的做法。
+    """
+    cells = _table_cell_texts(table_blocks)
+    if not cells:
+        return text_blocks
+    kept = []  # type: List[Dict[str, Any]]
+    for block in text_blocks:
+        compact = re.sub(r"\s+", "", block.get("text") or "")
+        if not compact:
+            continue
+        residual = compact
+        for cell in cells:
+            if cell in residual:
+                residual = residual.replace(cell, "")
+        covered = 1.0 - (len(residual) / float(len(compact)))
+        if covered >= TABLE_ECHO_COVERAGE:
+            logger.debug("丢弃表格拍扁副本: %s", compact[:40])
+            continue
+        kept.append(block)
+    return kept
+
+
 def parse_pdf(path: str) -> List[Dict[str, Any]]:
-    """解析 PDF：正文按页顺序排列，每页正文后面紧跟该页的表格块。"""
+    """解析 PDF：正文按页顺序排列，每页正文后面紧跟该页的表格块。
+
+    同一页的表格只保留 ``_pdf_table_blocks`` 产出的那一份原子块，正文里的拍扁副本
+    会被 :func:`_drop_table_echo` 去掉。
+    """
     text_pages = _pdf_text_blocks(path)
     tables_by_page = _pdf_table_blocks(path)
 
     total_pages = max(len(text_pages), max(tables_by_page.keys()) if tables_by_page else 0)
     blocks = []  # type: List[Dict[str, Any]]
     for page_no in range(1, total_pages + 1):
+        page_tables = tables_by_page.get(page_no, [])
         if page_no <= len(text_pages):
-            blocks.extend(text_pages[page_no - 1])
-        blocks.extend(tables_by_page.get(page_no, []))
+            page_text = text_pages[page_no - 1]
+            if page_tables:
+                page_text = _drop_table_echo(page_text, page_tables)
+            blocks.extend(page_text)
+        blocks.extend(page_tables)
     return blocks
 
 

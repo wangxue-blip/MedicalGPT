@@ -32,6 +32,7 @@ prompt"和"调用大模型"显式拆开：无生成能力时 ``answer`` 字段�
 import argparse
 import json
 import logging
+import re
 import sys
 import time
 from dataclasses import asdict, is_dataclass
@@ -94,11 +95,14 @@ except Exception as _exc:  # pragma: no cover
     logger.warning("medical_rag.generator 不可用，改用管线内置 prompt 组装: %s", _exc)
 
 try:
+    from medical_rag.verifier import DEFAULT_MIN_SCORE
     from medical_rag.verifier import CitationVerifier as _CitationVerifier
     from medical_rag.verifier import should_refuse as _should_refuse
 except Exception as _exc:  # pragma: no cover
     _CitationVerifier = None  # type: ignore
     _should_refuse = None  # type: ignore
+    # 与 verifier.DEFAULT_MIN_SCORE 保持一致：0.0 等于没有闸门。
+    DEFAULT_MIN_SCORE = 0.10
     logger.warning("medical_rag.verifier 不可用，改用管线内置拒答判据: %s", _exc)
 
 
@@ -210,13 +214,50 @@ def _fallback_format_sources(hits: Sequence[RetrievalHit]) -> str:
     return "\n".join(lines)
 
 
-def _fallback_should_refuse(hits, min_score: float = 0.0, min_hits: int = 1) -> bool:
-    """证据不足判据：命中数不够，或最高分达不到阈值。"""
+def _fallback_should_refuse(hits, min_score: float = DEFAULT_MIN_SCORE,
+                            min_hits: int = 1, query: Any = "") -> bool:
+    """证据不足判据：命中数不够，或最高绝对相关度达不到阈值。
+
+    刻意不用 final_score：它被 apply_authority_boost 按候选集归一过，第一名恒为
+    1.0+，拿它比阈值时闸门永远不触发。这里用与 verifier 同口径的字符 n-gram
+    重合度作绝对分；verifier 缺席时这套实现也必须保持同一语义，否则"有没有装
+    verifier"会改变拒答行为。
+    """
     hits = list(hits or [])
     if len(hits) < max(1, int(min_hits or 1)):
         return True
-    best = max(float(getattr(h, "final_score", 0.0) or 0.0) for h in hits)
+    variants = [query] if isinstance(query, str) else list(query or [])
+    variants = [normalize_text(item) for item in variants]
+    variants = [item for item in variants if item]
+    if not variants:
+        best = max(float(getattr(h, "score", 0.0) or 0.0) for h in hits)
+    else:
+        best = max(_fallback_relevance(variants, h) for h in hits)
     return best < float(min_score or 0.0)
+
+
+def _fallback_relevance(variants: Sequence[str], hit) -> float:
+    """query 变体对命中正文的字符 bigram 覆盖率，0~1，与候选集合无关。"""
+    chunk = getattr(hit, "chunk", None)
+    if chunk is None:
+        return 0.0
+    texts = [getattr(chunk, "text", "") or "", chunk.context_text() or ""]
+    gram_sets = [_char_bigrams(text[:4000]) for text in texts]
+    best = 0.0
+    for variant in variants:
+        grams_q = _char_bigrams(variant)
+        if not grams_q:
+            continue
+        for grams_t in gram_sets:
+            if not grams_t:
+                continue
+            best = max(best, len(grams_q & grams_t) / float(len(grams_q)))
+    return best
+
+
+def _char_bigrams(text: str):
+    compact = re.sub(r"\s+", "", (text or "").lower())
+    return {compact[i:i + 2] for i in range(len(compact) - 1)}
 
 
 class _FallbackVerifier(object):
@@ -269,7 +310,7 @@ class MedicalRAG(object):
         verifier: Optional[Any] = None,
         generator: Optional[Any] = None,
         terminology: Optional[Any] = None,
-        min_score: float = 0.0,
+        min_score: float = DEFAULT_MIN_SCORE,
         min_hits: int = 1,
         max_new_tokens: int = 512,
         temperature: float = 0.2,
@@ -310,16 +351,20 @@ class MedicalRAG(object):
         torch_dtype: str = "auto",
         support_threshold: float = 0.62,
         dose_exempt: bool = True,
-        min_score: float = 0.0,
+        min_score: float = DEFAULT_MIN_SCORE,
         min_hits: int = 1,
         max_new_tokens: int = 512,
         temperature: float = 0.2,
         top_p: float = 0.9,
+        probe_backends: bool = False,
     ) -> "MedicalRAG":
         """从内存中的 chunk 列表装配整条管线。
 
         构造期不加载任何大模型：reranker / generator 的权重都走各自的惰性加载，
         所以在没有 GPU 的机器上 from_chunks 依然是秒级返回。
+
+        ``probe_backends=True`` 才会在构造期探测两者是否真的可用——那会触发实际的
+        权重加载（bge-reranker-v2-m3 约 2.3GB），仅在明确要提前暴露环境问题时使用。
         """
         chunks = list(chunks or [])
         degraded: List[str] = []
@@ -342,14 +387,15 @@ class MedicalRAG(object):
         if missing_routes:
             degraded.append("召回路缺失: %s" % ",".join(missing_routes))
 
-        reranker = _build_reranker(reranker_model, device, degraded)
+        reranker = _build_reranker(reranker_model, device, degraded, probe=probe_backends)
         retriever = _build_retriever(
             chunks, indexes, reranker, terminology, recall_k, fusion_k,
             route_weights, authority_weight, degraded,
         )
         verifier = _build_verifier(support_threshold, dose_exempt, degraded)
         generator = _build_generator(
-            generator_model, peft_path, device_map, torch_dtype, degraded
+            generator_model, peft_path, device_map, torch_dtype, degraded,
+            probe=probe_backends,
         )
 
         return cls(
@@ -390,7 +436,7 @@ class MedicalRAG(object):
         hits = self._retrieve(query, topk)
         timing["retrieve_ms"] = _elapsed_ms(started)
 
-        refused = self._should_refuse(hits)
+        refused = self._should_refuse(hits, query)
         sources = [hit.to_dict() for hit in hits]
 
         if refused:
@@ -439,13 +485,34 @@ class MedicalRAG(object):
             logger.warning("检索失败，按无召回处理: %s", exc)
             return []
 
-    def _should_refuse(self, hits: List[RetrievalHit]) -> bool:
+    def _should_refuse(self, hits: List[RetrievalHit], query: str = "") -> bool:
         func = _should_refuse or _fallback_should_refuse
         try:
-            return bool(func(hits, min_score=self.min_score, min_hits=self.min_hits))
+            return bool(func(hits, min_score=self.min_score, min_hits=self.min_hits,
+                             query=self._gate_queries(query)))
         except Exception as exc:
             logger.warning("拒答判据执行失败，保守按拒答处理: %s", exc)
             return True
+
+    def _gate_queries(self, query: str) -> List[str]:
+        """拒答闸门用的查询变体。
+
+        闸门判的是字面覆盖率，而中文别名和规范名字面完全不重合（"心梗" vs
+        "心肌梗死"）。不做术语扩展就会把大量本该作答的问题判成"没有证据"——
+        检索那一侧本来就是用扩展后的变体去召回的，闸门必须用同一套口径。
+        """
+        variants = [query]
+        if self.terminology is None or not query:
+            return variants
+        try:
+            expanded = list(self.terminology.expand_query(query, max_expansions=4) or [])
+        except Exception as exc:
+            logger.warning("拒答闸门的术语扩展失败，按原始 query 判定: %s", exc)
+            return variants
+        for item in expanded:
+            if item and item not in variants:
+                variants.append(item)
+        return variants
 
     def _build_prompt(self, query: str, hits: List[RetrievalHit]) -> str:
         func = _build_prompt or _fallback_build_prompt
@@ -580,9 +647,10 @@ class MedicalRAG(object):
             return _fallback_format_sources(hits)
 
     def __repr__(self) -> str:
+        # 刻意不读 .available：repr 不应该触发几 GB 的权重加载。
         return "<MedicalRAG chunks=%d routes=%s rerank=%s gen=%s>" % (
             len(self.chunks), ",".join(sorted(self.indexes.keys())) or "-",
-            self._reranker_enabled(), self._generator_available(),
+            self.reranker is not None, self.generator is not None,
         )
 
 
@@ -663,8 +731,17 @@ def _load_terminology(terminology_path: Optional[str], degraded: List[str]):
         return None
 
 
-def _build_reranker(reranker_model: Optional[str], device: str, degraded: List[str]):
-    """精排器构造失败不算致命：融合分本身就是一个可用的排序基线。"""
+def _build_reranker(reranker_model: Optional[str], device: str, degraded: List[str],
+                    probe: bool = False):
+    """精排器构造失败不算致命：融合分本身就是一个可用的排序基线。
+
+    **构造期绝不能读 ``.available``**：那是一个会调用 ``_ensure_model()`` 的属性，
+    读一次就等于在 ``from_chunks`` 里同步下载/加载 bge-reranker-v2-m3（约 2.3GB）。
+    调用方可能只想跑 ``answer(q, generate=False)`` 看检索结果，却要等几分钟甚至在
+    构造期 OOM，这与 from_chunks 自己的文档（"构造期不加载任何大模型"）直接矛盾。
+    裸环境下看不出来，只是因为 sentence_transformers 缺失让探测秒失败。
+    可用性推迟到第一次真正精排时确定（``MedicalRetriever._rerank`` 会再探一次）。
+    """
     if CrossEncoderReranker is None:
         degraded.append("精排模块不可用")
         return None
@@ -675,6 +752,9 @@ def _build_reranker(reranker_model: Optional[str], device: str, degraded: List[s
         logger.warning("构造交叉编码器失败，已跳过精排: %s", exc)
         degraded.append("精排构造失败")
         return None
+    if not probe:
+        degraded.append("精排可用性待首次调用时确定")
+        return reranker
     try:
         if not reranker.available:
             degraded.append("精排模型不可用，按融合分排序")
@@ -717,8 +797,13 @@ def _build_verifier(support_threshold: float, dose_exempt: bool, degraded: List[
 
 
 def _build_generator(generator_model: Optional[str], peft_path: Optional[str],
-                     device_map: str, torch_dtype: str, degraded: List[str]):
-    """没给模型路径就直接不装生成器——这是本地验证检索链路的默认姿态。"""
+                     device_map: str, torch_dtype: str, degraded: List[str],
+                     probe: bool = False):
+    """没给模型路径就直接不装生成器——这是本地验证检索链路的默认姿态。
+
+    和 :func:`_build_reranker` 同理，构造期不读 ``.available``：那会把整个
+    causal LM 的权重拉起来，而调用方可能只是想看 prompt 和 sources。
+    """
     if not generator_model:
         return None
     if _HFGenerator is None:
@@ -733,6 +818,9 @@ def _build_generator(generator_model: Optional[str], peft_path: Optional[str],
         logger.warning("构造生成器失败，将只返回 prompt: %s", exc)
         degraded.append("生成器构造失败")
         return None
+    if not probe:
+        degraded.append("生成可用性待首次调用时确定")
+        return generator
     try:
         if not generator.available:
             degraded.append("生成模型不可用，answer 将为空")
@@ -794,7 +882,8 @@ def parse_args():
     parser.add_argument("--peft_path", default="", help="LoRA 适配器目录")
     parser.add_argument("--terminology", default="", help="术语表 JSONL")
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--min_score", type=float, default=0.0, help="拒答分数阈值")
+    parser.add_argument("--min_score", type=float, default=DEFAULT_MIN_SCORE,
+                        help="拒答闸门的最低绝对相关度(0~1)，0 表示关闭闸门")
     parser.add_argument("--min_hits", type=int, default=1, help="拒答命中数下限")
     parser.add_argument("--no_generate", action="store_true", help="只跑检索与 prompt 组装")
     parser.add_argument("--max_rows", type=int, default=-1)

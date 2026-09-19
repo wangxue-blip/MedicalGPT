@@ -72,9 +72,35 @@ _SENTENCE_RE = re.compile(
 )
 
 # 章节序号前缀，用于兜底识别未被 parser 标成 is_heading 的短行标题。
+#
+# 序号标点（、．)）等）是必需的，不能可选：写成可选时 "数字开头 + 任意字符" 就算命中，
+# 而中文指南里的剂量行与阈值行恰好长这样（"2型糖尿病患者血压应控制在130/80mmHg以下"、
+# "100mg 阿司匹林每日一次长期维持"）。这类行被判成标题后不会产出任何 chunk——
+# 被吞掉的正是本系统最该召回的具体数值句。点分编号（"3.1 一线用药"）后面习惯跟空格
+# 而不是标点，所以单独给它一条分支。
 _HEADING_HINT_RE = re.compile(
-    r"^(第[一二三四五六七八九十百]+[章节篇部分]|[0-9]+(\.[0-9]+)*[、.．]?\s*\S)"
+    r"^(?:"
+    r"第[一二三四五六七八九十百]+[章节篇部分]"
+    r"|[0-9]+(?:\.[0-9]+)+\s+\S"
+    r"|[0-9]+(?:\.[0-9]+)*[、.．)）]\s*\S"
+    r")"
 )
+
+# 计量表达：命中的行一律不判为标题。标题不会写剂量、血压、检验阈值或数值区间，
+# 而正文里的这类行恰恰是最不能被当成标题吞掉的内容。
+_MEASURE_HINT_RE = re.compile(
+    r"\d+(?:\.\d+)?\s*"
+    r"(?:mg|毫克|μg|ug|微克|IU|国际单位|ml|毫升|g|克|kg|公斤|mmHg|mmol|μmol|umol|mol|"
+    r"%|‰|片|粒|颗|袋|支|滴|喷)"
+    r"|\d\s*[~～至\-–]\s*\d"
+    r"|\d\s*/\s*\d"
+    r"|/\s*(?:L|l|kg|min|天|日|次|分)"
+)
+
+# 兜底识别出的标题没有可靠层级。给它一个比任何编号层级都深的值，
+# _push_heading 才只会替换同为兜底级的标题，而不会把带编号的祖先章节整栈弹掉
+# （弹掉的后果是 chunk.section_path 丢失"第四章"这类祖先，引用坐标直接指错）。
+FALLBACK_HEADING_LEVEL = 9
 
 
 # --------------------------------------------------------------------------
@@ -152,6 +178,22 @@ def _group_text(group: Sequence[Tuple[str, Optional[int]]]) -> str:
     return "".join(text for text, _ in group).strip()
 
 
+def _merge_overlapping(prev: str, tail: str) -> str:
+    """把尾段并回上一段，并消掉两者共享的重叠部分。
+
+    child 之间本来就带 overlap_chars 的重叠，直接拼接会让同一句话在 chunk 里出现两遍，
+    既污染 BM25 词频也让引用原文读起来错乱。所以先找 prev 的最长后缀 == tail 的前缀。
+    """
+    if not tail:
+        return prev
+    if tail in prev:
+        return prev
+    for size in range(min(len(prev), len(tail)), 0, -1):
+        if prev.endswith(tail[:size]):
+            return prev + tail[size:]
+    return prev + tail
+
+
 def _group_page(group: Sequence[Tuple[str, Optional[int]]]) -> Optional[int]:
     """组的页码取第一个有页码的单元——引用时指向内容开始的那一页最有用。"""
     for _, page in group:
@@ -185,14 +227,23 @@ def _push_heading(stack: List[Tuple[int, str]], level: int, title: str) -> None:
 
 
 def _looks_like_heading(text: str, max_len: int = 40) -> bool:
-    """兜底判断：短行 + 章节序号前缀 + 不以句号结尾，视为标题。
+    """兜底判断：短行 + 章节序号前缀 + 不含句读 + 不含计量表达，视为标题。
 
     纯文本来源（txt / md 之外）常常丢失结构信息，这里做一次低风险的补救；
     parser 已经给出 is_heading 时不会走到这里。
+
+    误判的代价是不对称的：漏判一个标题只是少一层 section_path，误判一条正文却会
+    让这条正文彻底不进索引（is_heading 的 block 只压栈不产出 chunk），并且污染
+    后续所有 chunk 的章节路径。所以这里宁可收紧。
     """
     if not text or len(text) > max_len:
         return False
     if text[-1] in "。！？；;,，":
+        return False
+    # 标题不会在行内带句读；带了说明这是被截断的正文
+    if re.search(r"[。！？；，]", text):
+        return False
+    if _MEASURE_HINT_RE.search(text):
         return False
     return bool(_HEADING_HINT_RE.match(text))
 
@@ -200,18 +251,69 @@ def _looks_like_heading(text: str, max_len: int = 40) -> bool:
 # --------------------------------------------------------------------------
 # 证据等级
 # --------------------------------------------------------------------------
+# schema.EVIDENCE_PATTERNS 按"先 I 后 III"的顺序用 re.search 匹配，而 "III类推荐"
+# 从第 3 个字符起就含有子串 "I类推荐"，于是 II / III 类推荐全被判成 I 类推荐——
+# 在指南体系里 III 类的含义是"不应实施，有害"，翻成 I 类"强烈推荐"是最危险的一种错标。
+# schema.py 是冻结的数据契约，不能改，所以在切片侧先做一次顺序正确的前置判定。
+# 正则用单条有序 alternation：finditer 在同一起点会优先尝试更长的分支，
+# 因此 "III类推荐" 只会产出一个 III，而不会既算 III 又算 II。
+_REC_CLASS_RE = re.compile(r"(III|Ⅲ|IIa|Ⅱa|IIb|Ⅱb|II|Ⅱ|I|Ⅰ|[123])\s*类推荐")
+_REC_CLASS_ALIAS = {
+    "III": "III", "Ⅲ": "III", "3": "III",
+    "IIa": "IIa", "Ⅱa": "IIa",
+    "IIb": "IIb", "Ⅱb": "IIb",
+    "II": "II", "Ⅱ": "II", "2": "II",
+    "I": "I", "Ⅰ": "I", "1": "I",
+}
+_EVIDENCE_GRADE_RE = re.compile(
+    r"[（(]\s*证据级别\s*[:：]?\s*([ABCD])\s*[）)]|([ABCD])\s*级证据"
+)
+
+
+def evidence_levels_in(text: str) -> List[str]:
+    """返回文本里出现的全部推荐等级 / 证据级别标记（按出现顺序去重）。
+
+    之所以要"全部"而不是"第一个"：同一段落里并列写多条不同强度的推荐是中文指南的
+    常态，只取第一个就会把"不应实施"的段落标成"强烈推荐"。
+    """
+    found = []  # type: List[str]
+    if not text:
+        return found
+    for match in _REC_CLASS_RE.finditer(text):
+        level = _REC_CLASS_ALIAS.get(match.group(1))
+        if level and level not in found:
+            found.append(level)
+    for match in _EVIDENCE_GRADE_RE.finditer(text):
+        grade = match.group(1) or match.group(2)
+        if grade:
+            label = "level:%s" % grade
+            if label not in found:
+                found.append(label)
+    return found
+
+
 def _resolve_evidence_level(child_text: str, parent_text: str, section_path: Sequence[str]) -> str:
-    """child -> parent -> section 标题，逐级回退找推荐等级。
+    """child -> parent -> section 标题，逐级回退找推荐等级；等级不唯一时宁缺毋错。
 
     推荐等级常写在段落开头或小标题上（"（一）I类推荐"），而检索命中的可能是
-    段落中段的 child。逐级继承保证这类 chunk 不会在展示时丢掉强度标记。
+    段落中段的 child，所以需要逐级继承。但继承必须带约束：parent 默认 1200 字，
+    里面同时出现 I 类与 III 类是常见写法，无条件继承会让"不应实施"的 child 被贴上
+    "强烈推荐"。推荐等级是决定一条建议该不该执行的核心元数据，错标比缺失危险得多
+    ——界面上它看起来还是经过溯源的。因此只有当某一级文本里的标记**唯一**时才采用。
     """
     for candidate in (child_text, parent_text, " ".join(section_path)):
         if not candidate:
             continue
-        level = detect_evidence_level(candidate)
-        if level:
-            return level
+        levels = evidence_levels_in(candidate)
+        if not levels:
+            # schema 里可能有本模块未覆盖的新标记，留一条兜底
+            legacy = detect_evidence_level(candidate)
+            if legacy:
+                return legacy
+            continue
+        if len(levels) == 1:
+            return levels[0]
+        return ""
     return ""
 
 
@@ -271,7 +373,9 @@ class StructureAwareChunker(object):
                 # 先用"旧"的 section_path 结算已累积的正文，再更新栈
                 chunks.extend(self._flush_section(doc, stack, pending, counter))
                 pending = []
-                _push_heading(stack, block.get("heading_level") or 1, text)
+                _push_heading(
+                    stack, block.get("heading_level") or FALLBACK_HEADING_LEVEL, text
+                )
                 continue
 
             if content_type in ATOMIC_CONTENT_TYPES:
@@ -315,18 +419,32 @@ class StructureAwareChunker(object):
                 continue
             parent_id = stable_id(doc.doc_id, " > ".join(section_path), "parent", parent_idx)
             child_groups = _pack_units(parent_group, self.child_chars, self.child_overlap)
-            for child_idx, child_group in enumerate(child_groups):
+
+            # 先把 child 文本定下来再建 chunk：短于 min_chars 的碎片必须**合并**而不是丢弃。
+            # 丢弃会让这段文字在三路索引里彻底检索不到（它只剩在 parent_text 里，
+            # 而 parent_text 不进索引）。医疗语料里"妊娠期妇女禁用本品"这类关键短句
+            # 恰好是 20~35 字，整段禁忌就这么静默消失了。
+            records = []  # type: List[Tuple[str, Optional[int]]]
+            for child_group in child_groups:
                 child_text = _group_text(child_group)
-                if len(child_text) < self.min_chars:
-                    # 目录残行、页眉页脚之类的碎片，进索引只会稀释召回
+                if not child_text:
                     continue
+                page = _group_page(child_group) or _group_page(parent_group)
+                if len(child_text) < self.min_chars and records:
+                    prev_text, prev_page = records[-1]
+                    records[-1] = (_merge_overlapping(prev_text, child_text), prev_page)
+                    continue
+                # 本 parent 一条 child 都还没有时无条件保留：短 section 本身就是原子的
+                records.append((child_text, page))
+
+            for child_idx, (child_text, page) in enumerate(records):
                 out.append(
                     self._make_chunk(
                         doc=doc,
                         section_path=section_path,
                         text=child_text,
                         parent_text=parent_text,
-                        page=_group_page(child_group) or _group_page(parent_group),
+                        page=page,
                         content_type=CONTENT_TEXT,
                         counter=counter,
                         parent_id=parent_id,

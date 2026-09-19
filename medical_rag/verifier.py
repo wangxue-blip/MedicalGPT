@@ -43,10 +43,14 @@ RAG 常被当成"把原文塞进 prompt 就不会胡说"的银弹，但实际失
 两者的真正区别不在"说没说剂量"，而在"这个剂量是抄来的还是想出来的"。所以本
 模块把命中 ``DOSE_PATTERNS`` 的句子分成两类：
 
-* 有引用、且该句被引原文支持、且**被引 chunk 原文里出现了同样的剂量数字**
+* 有引用、且该句被引原文支持、且**被引 chunk 的剂量片段里出现了同样的 (数值, 单位)**
   -> 记入 ``exempted_doses``，视为合规（这正是 RAG 应该做的事）；
-* 其余情况（没引用 / 引用不支持 / 原文里根本没有这个数字）
+* 其余情况（没引用 / 引用不支持 / 原文的剂量里根本没有这个量）
   -> 记入 ``dose_violations``，属最高风险项，调用方应据此拦截或改写。
+
+判据必须带单位、且必须落在原文的剂量片段上，不能只比"数字出现过"：只比数字时
+"每次0.5mg"（单位被改，差 1000 倍）、"每次2片"（2 取自"2型糖尿病"）、"每次30mg"
+（30 取自 eGFR 阈值）全都能被原文里某个无关数字担保下来。
 
 于是安全约束从"禁止谈剂量"升级成"剂量必须可溯源"，准确性与安全性同时保住。
 
@@ -63,7 +67,7 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from medical_rag.schema import Chunk, RetrievalHit, normalize_text
 
@@ -143,7 +147,7 @@ DOSE_PATTERNS = tuple(_REWARD_DOSE_PATTERNS)
 # 因此这里按"数字 + 剂量单位"做宽召回：剂量单位本身就意味着这是一次用量声明,
 # 前面接什么动词都不改变它需要溯源的事实。单位表刻意不含 kg/公斤，避免把
 # "体重60kg" 这类描述性数字误判成剂量。宽召回只会让更多句子被要求给出出处，
-# 方向上是安全的：真抄自原文的句子仍会被 _dose_numbers_backed_by 放行。
+# 方向上是安全的：真抄自原文的句子仍会被 _dose_pairs_backed_by 放行。
 _BARE_DOSE_PATTERN = (
     r"\d+(\.\d+)?\s*"
     r"(mg|毫克|ml|毫升|μg|ug|微克|IU|国际单位|g|克|片|粒|颗|袋|支|滴|喷)"
@@ -167,8 +171,6 @@ SENT_END_CHARS = "。！？；!?;\n"
 _CITATION_RE = re.compile(r"[\[【［]\s*(\d+(?:\s*[,，、]\s*\d+)*)\s*[\]】］]")
 # 句末紧跟的引用（"……。[1][2]"），分句时要跟着上一句走，不能甩给下一句。
 _TRAILING_CITATION_RE = re.compile(r"[ \t]*[\[【［]\s*\d+(?:\s*[,，、]\s*\d+)*\s*[\]】］]")
-
-_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
 # 滑窗参数：步长取句长的 1/3，窗口取句长的 1.3 倍——两者的关系不是随手定的，
 # 窗口宽度必须 >= 句长 + 步长，才能保证原文里任意位置的对应段落都会被某一个窗口
@@ -387,49 +389,71 @@ def dose_spans(text: str) -> List[str]:
     return spans
 
 
-def _dose_numbers(text: str) -> List[float]:
-    """剂量片段里的数字。按数值而非字符串比较，"0.5" 与 "0.50" 视为同一剂量。"""
-    values: List[float] = []
+# 单位归一：只在**真正等价**的写法之间归并。g 与 mg 差 1000 倍，绝不能互通——
+# 剂量幻觉里最常见、危害最大的一类恰恰是单位被改掉（0.5g -> 0.5mg）。
+_UNIT_ALIASES = {
+    "mg": "mg", "毫克": "mg",
+    "g": "g", "克": "g", "gram": "g",
+    "ug": "ug", "μg": "ug", "µg": "ug", "微克": "ug",
+    "ml": "ml", "毫升": "ml",
+    "l": "l", "升": "l",
+    "iu": "iu", "国际单位": "iu",
+    "片": "片", "粒": "粒", "颗": "颗", "袋": "袋", "支": "支",
+    "滴": "滴", "喷": "喷",
+    "次": "次", "回": "次",
+}
+# 长单位优先，否则 "0.5mg" 会被 "g" 先咬掉一半
+_UNIT_ALTERNATION = "|".join(
+    re.escape(unit) for unit in sorted(_UNIT_ALIASES, key=len, reverse=True)
+)
+_DOSE_PAIR_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(%s)" % _UNIT_ALTERNATION, re.IGNORECASE
+)
+
+
+def dose_pairs(text: str) -> List[Tuple[float, str]]:
+    """从剂量片段里抽出 (数值, 归一化单位) 二元组，按出现顺序去重。
+
+    只看剂量片段而不是全文的所有数字：这是豁免判据能不能成立的关键。原文里的
+    "2型糖尿病""eGFR 低于 30""2021年版"都是裸数字，一旦把它们纳入可用集合，
+    任何凭空编造的剂量都能被某个无关数字担保下来。
+    """
+    pairs: List[Tuple[float, str]] = []
     for span in dose_spans(text):
-        for token in _NUMBER_RE.findall(span):
+        for match in _DOSE_PAIR_RE.finditer(span):
             try:
-                value = float(token)
+                value = float(match.group(1))
             except ValueError:
                 continue
-            if value not in values:
-                values.append(value)
-    return values
+            raw_unit = match.group(2)
+            unit = _UNIT_ALIASES.get(raw_unit.lower(), raw_unit.lower())
+            item = (value, unit)
+            if item not in pairs:
+                pairs.append(item)
+    return pairs
 
 
-def _numbers_in(text: str) -> List[float]:
-    values: List[float] = []
-    for token in _NUMBER_RE.findall(text or ""):
-        try:
-            value = float(token)
-        except ValueError:
-            continue
-        if value not in values:
-            values.append(value)
-    return values
+def _dose_pairs_backed_by(sentence: str, evidences: Sequence[str]) -> bool:
+    """句中每一个 (数值, 单位) 是否都能在被引原文的**剂量片段**里找到同样的二元组。
 
+    早先只比数值不比单位，且拿原文里的全部裸数字做担保，结果是"每次0.5mg"
+    （单位被改，差 1000 倍）、"每次2片"（2 来自"2型糖尿病"）、"每次30mg"
+    （30 来自 eGFR 阈值）三种编造剂量全部被判为可溯源。相似度那一关也拦不住：
+    25 字的句子只改两三个字，滑窗 Dice 仍有 0.72~0.82，远在阈值之上。
+    所以豁免的判据必须是"同样的量出现在原文的同样语境里"。
 
-def _dose_numbers_backed_by(sentence: str, evidences: Sequence[str]) -> bool:
-    """句中剂量数字是否都能在被引原文里找到。
-
-    比"原文也命中 DOSE_PATTERNS"更宽松是有意为之：说明书原文常写成表格或
-    "0.5g bid" 这类缩写，未必匹配得上中文剂量正则；但只要数字对得上，就说明
-    模型是在转述而不是自创。反之只要有一个数字凭空冒出来（把 0.25g 说成 0.5g
-    正是最危险的一类幻觉），整句就不给豁免。
+    仍然保留一点宽松：原文写成表格或 "0.5g bid" 时，(0.5, g) 照样能被 _BARE_DOSE_PATTERN
+    抽到，不要求中文剂量句式完全一致。
     """
-    wanted = _dose_numbers(sentence)
+    wanted = dose_pairs(sentence)
     if not wanted:
         return False
-    available: List[float] = []
+    available: List[Tuple[float, str]] = []
     for evidence in evidences:
-        for value in _numbers_in(evidence):
-            if value not in available:
-                available.append(value)
-    return all(value in available for value in wanted)
+        for item in dose_pairs(evidence):
+            if item not in available:
+                available.append(item)
+    return all(item in available for item in wanted)
 
 
 # --------------------------------------------------------------------------
@@ -497,7 +521,9 @@ class CitationVerifier:
 
         指标口径：
           citation_precision = supported 的引用句 / 有引用的句子数
-          citation_recall    = 有引用的实质句 / 实质句总数
+          citation_recall    = 引用编号有效的实质句 / 实质句总数
+        编号越界的句子计入 precision 的分母、但不计入 recall 的分子，并单列到
+        ``fabricated_citations``：编造编号不是"引用了只是引错"，而是根本没有出处。
         分母为 0（答案为空、全是过渡句）时返回 0.0，不抛异常——上游可能把它接进
         批量评测，异常会让整批跑挂。
         """
@@ -520,6 +546,7 @@ class CitationVerifier:
         cited_supported = 0
         substantive_total = 0
         substantive_cited = 0
+        fabricated_citations: List[str] = []
 
         for sentence in sentences:
             cited = extract_citations(sentence)
@@ -532,13 +559,15 @@ class CitationVerifier:
 
             if cited:
                 cited_total += 1
-                if substantive:
-                    substantive_cited += 1
 
                 in_range = [num for num in cited if 1 <= num <= len(hits)]
                 out_of_range = [num for num in cited if num not in in_range]
                 if out_of_range:
                     # 越界编号说明模型在编引用，哪怕内容恰好正确也不能算可追溯。
+                    # 因此这一句不计入 substantive_cited：把编号全编出来的答案拿到
+                    # citation_recall = 1.0 是最危险的一类静默放行——上游若用 recall
+                    # 做质量门禁，等于给幻觉发了满分。
+                    fabricated_citations.append(sentence)
                     check = CitationCheck(sentence=sentence, cited=cited, supported=False,
                                           best_score=0.0, reason=REASON_OUT_OF_RANGE)
                     checks.append(check)
@@ -546,6 +575,9 @@ class CitationVerifier:
                     if has_dose:
                         dose_violations.append(sentence)
                     continue
+
+                if substantive:
+                    substantive_cited += 1
 
                 cited_evidences = [evidences[num - 1] for num in in_range]
                 score = self.similarity(sentence, cited_evidences)
@@ -563,7 +595,7 @@ class CitationVerifier:
                 ))
 
                 if has_dose and self.dose_exempt:
-                    if supported and _dose_numbers_backed_by(clean, cited_evidences):
+                    if supported and _dose_pairs_backed_by(clean, cited_evidences):
                         exempted_doses.append(sentence)
                     else:
                         dose_violations.append(sentence)
@@ -594,6 +626,7 @@ class CitationVerifier:
             "uncited_sentences": uncited_sentences,
             "dose_violations": dose_violations,
             "exempted_doses": exempted_doses,
+            "fabricated_citations": fabricated_citations,
             "num_sentences": len(sentences),
         }
 
@@ -601,18 +634,100 @@ class CitationVerifier:
 # --------------------------------------------------------------------------
 # 证据不足时拒答
 # --------------------------------------------------------------------------
-def should_refuse(hits: List[RetrievalHit], min_score: float = 0.0, min_hits: int = 1) -> bool:
+# 拒答阈值的默认值。0.0 等于没有闸门：任何被召回的 chunk 都能过，而三路召回对
+# 大多数中文 query 都会吐出结果。0.10 是按下面的 query_coverage 口径实测定的——
+# 无关语料稳定落在 0.05 以下，带术语扩展后真正相关的段落在 0.18 以上。
+DEFAULT_MIN_SCORE = 0.10
+
+
+def query_coverage(query: str, text: str) -> float:
+    """query 的字符 n-gram 有多大比例出现在 text 里（overlap coefficient，0~1）。
+
+    这里刻意用覆盖率而不是 :func:`ngram_support_score` 的 Dice：Dice 是对称系数，
+    分母含 chunk 的长度，于是"短 query 命中长 chunk"会被长度项系统性压低，而这正是
+    拒答闸门要判的典型形态。覆盖率只问"query 说的东西在这段原文里有没有"，
+    与 chunk 多长无关，量纲也稳定在 0~1，可以直接和一个固定阈值比。
+    """
+    query_grams = _reward_char_ngrams(query)
+    text_grams = _reward_char_ngrams(text)
+    if not query_grams or not text_grams:
+        return 0.0
+    overlap = sum(
+        min(query_grams[key], text_grams[key])
+        for key in (query_grams.keys() & text_grams.keys())
+    )
+    total = sum(query_grams.values())
+    return overlap / float(total) if total else 0.0
+
+
+def absolute_relevance(query: Any, hit: RetrievalHit) -> float:
+    """一条命中与 query 的**绝对**相关度，取值 0~1，与候选集合无关。
+
+    为什么不能用 ``final_score``：``rerank.apply_authority_boost`` 会把候选集里的
+    语义分归一化，第一名的基线恒为 1.0，再叠加权威度/时效性偏置后 final_score 恒
+    >= 1.0，与查询和语料到底相不相关无关。拿它和 min_score 比，闸门就是死的——
+    而且不可调：任何落在 (0, 1.0) 的阈值同样永不触发，运维改了会发现没反应。
+
+    所以这里改用绝对量纲：
+    * 有精排分时走 sigmoid(logits)，这是交叉编码器的标准用法，跨候选集可比；
+    * 否则用 query 对 chunk 正文的 n-gram 覆盖率。
+
+    ``query`` 可以是一个字符串，也可以是一组查询变体（术语扩展的结果）：中文别名
+    与规范名字面完全不重合（"心梗" vs "心肌梗死"），只按原始 query 算覆盖率会把
+    大量本该作答的问题误判成"没有证据"。传变体时取各变体的最大值。
+    """
+    rerank_score = getattr(hit, "rerank_score", None)
+    if rerank_score is not None:
+        try:
+            return _sigmoid(float(rerank_score))
+        except (TypeError, ValueError):
+            pass
+    if isinstance(query, str):
+        variants = [query]
+    else:
+        variants = [str(item) for item in (query or [])]
+    variants = [normalize_text(item) for item in variants]
+    variants = [item for item in variants if item]
+    if not variants:
+        # 没有 query 就退回融合分：量纲不同，只作为兜底，不作为推荐用法。
+        return float(getattr(hit, "score", 0.0) or 0.0)
+    chunk = getattr(hit, "chunk", None)
+    if chunk is None:
+        return 0.0
+    texts = [(chunk.text or "")[:MAX_EVIDENCE_CHARS],
+             (chunk.context_text() or "")[:MAX_EVIDENCE_CHARS]]
+    return max(query_coverage(item, text) for item in variants for text in texts)
+
+
+def _sigmoid(value: float) -> float:
+    """数值安全的 sigmoid（两侧分支写法避免 exp 溢出）。"""
+    if value >= 0:
+        return 1.0 / (1.0 + math.exp(-value))
+    exp_value = math.exp(value)
+    return exp_value / (1.0 + exp_value)
+
+
+def should_refuse(
+    hits: List[RetrievalHit],
+    min_score: float = DEFAULT_MIN_SCORE,
+    min_hits: int = 1,
+    query: Any = "",
+) -> bool:
     """证据不足就该拒答，而不是让模型用参数里的记忆硬答。
 
     医疗场景下"我没有找到可靠依据"是一个合格答案；而检索为空时照常生成，等于
     悄悄退化成一个没有出处的闭卷模型——外观上仍带着 RAG 的可信感，最危险。
+
+    ``query`` 是可选的，但强烈建议传：不传时只能退回融合分，而融合分的量纲
+    （RRF，0.0x 量级）和 min_score 的默认值对不上，闸门会偏松。传术语扩展后的
+    变体列表效果最好，见 :func:`absolute_relevance`。
     """
     hits = list(hits or [])
     if len(hits) < max(0, int(min_hits)):
         return True
     if not hits:
         return True
-    best = max(float(hit.final_score) for hit in hits)
+    best = max(absolute_relevance(query, hit) for hit in hits)
     return best < float(min_score)
 
 
@@ -671,8 +786,11 @@ def parse_args():
     parser.add_argument("--answer", default="", help="待校验答案；留空则跑内置示例")
     parser.add_argument("--support_threshold", type=float, default=DEFAULT_SUPPORT_THRESHOLD)
     parser.add_argument("--no_dose_exempt", action="store_true", help="关闭剂量豁免，所有剂量表达都算违规")
-    parser.add_argument("--min_score", type=float, default=0.0, help="should_refuse 的最低 final_score")
+    parser.add_argument("--min_score", type=float, default=DEFAULT_MIN_SCORE,
+                        help="should_refuse 的最低绝对相关度（0~1）")
     parser.add_argument("--min_hits", type=int, default=1, help="should_refuse 的最少命中数")
+    parser.add_argument("--query", default="二甲双胍的起始剂量是多少",
+                        help="用于演示拒答闸门的查询")
     return parser.parse_args()
 
 
@@ -687,8 +805,10 @@ def main():
     answer = args.answer or DEMO_ANSWER
     print("相似度后端: %s (奖励模块可用: %s)" % (verifier.backend, HAS_REWARD_MODULE))
     print(format_report(verifier.verify(answer, hits)))
-    print("should_refuse(有证据): %s" % should_refuse(hits, args.min_score, args.min_hits))
-    print("should_refuse(无证据): %s" % should_refuse([], args.min_score, args.min_hits))
+    print("should_refuse(有证据): %s" % should_refuse(
+        hits, args.min_score, args.min_hits, query=args.query))
+    print("should_refuse(无证据): %s" % should_refuse(
+        [], args.min_score, args.min_hits, query=args.query))
 
 
 if __name__ == "__main__":

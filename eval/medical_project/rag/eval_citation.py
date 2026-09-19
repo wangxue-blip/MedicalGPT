@@ -329,8 +329,8 @@ def parse_args():
                         help="相似度后端；none 走字符 n-gram（裸环境默认）")
     parser.add_argument("--dense_model", default=None, help="--embedder dense 时的模型路径")
     parser.add_argument("--device", default="cpu")
-    parser.add_argument("--min_score", type=float, default=0.0,
-                        help="should_refuse 的最低 final_score，用于统计本该拒答却照常作答的比例")
+    parser.add_argument("--min_score", type=float, default=0.10,
+                        help="should_refuse 的最低绝对相关度(0~1)，用于统计本该拒答却照常作答的比例")
     parser.add_argument("--min_hits", type=int, default=1, help="should_refuse 的最少命中数")
     parser.add_argument("--max_rows", type=int, default=-1)
     parser.add_argument("--dump_details", default=None, help="逐条明细 jsonl 输出路径（可选）")
@@ -438,7 +438,8 @@ def main():
         flag_dose_exempt.append(bool(dose_exempted))
 
         try:
-            if should_refuse(hits, min_score=args.min_score, min_hits=args.min_hits):
+            if should_refuse(hits, min_score=args.min_score, min_hits=args.min_hits,
+                             query=query):
                 num_answered_without_evidence += 1
         except Exception as exc:
             logger.warning("should_refuse 判据执行失败，该条不计入: %s", exc)
