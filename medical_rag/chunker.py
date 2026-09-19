@@ -311,8 +311,21 @@ def _resolve_evidence_level(child_text: str, parent_text: str, section_path: Seq
             if legacy:
                 return legacy
             continue
-        if len(levels) == 1:
-            return levels[0]
+
+        # 推荐类别(I/II/IIa/IIb/III)与证据级别(level:A~D)是两个正交维度，
+        # "I 类推荐（证据级别：A）" 是中文指南里最标准的写法。唯一性约束必须
+        # 在各维度**内部**判定：跨维度一起数会让这种标准写法命中"不唯一"而
+        # 两个标记一起丢失。同一维度内出现多个取值才是真歧义，此时才宁缺毋错。
+        classes = [lv for lv in levels if not lv.startswith("level:")]
+        grades = [lv for lv in levels if lv.startswith("level:")]
+        cls = classes[0] if len(set(classes)) == 1 else ""
+        grade = grades[0] if len(set(grades)) == 1 else ""
+        if cls and grade:
+            return "%s（证据级别%s）" % (cls, grade.split(":", 1)[1])
+        if cls:
+            return cls
+        if grade:
+            return grade
         return ""
     return ""
 

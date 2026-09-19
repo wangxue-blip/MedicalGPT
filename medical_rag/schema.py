@@ -54,14 +54,17 @@ CONTENT_QA = "qa"
 # Recommendation-class / evidence-level markers used in Chinese clinical
 # guidelines. A recommendation stripped of its class has lost its strength, so
 # the chunker lifts these into metadata instead of leaving them in the body.
+# 顺序敏感：必须长前缀优先。re.search 会在 "III类推荐" 内部从第 3 个字符起
+# 匹配到 "I类推荐"，若把 I 放在前面，III 类（不推荐/有害）会被误标成 I 类（强烈推荐）
+# ——这是会直接反转临床结论的错标，比缺失危险得多。
 EVIDENCE_PATTERNS = (
-    (r"(I\s*类推荐|Ⅰ\s*类推荐|1\s*类推荐)", "I"),
+    (r"(III\s*类推荐|Ⅲ\s*类推荐|3\s*类推荐)", "III"),
     (r"(IIa\s*类推荐|Ⅱa\s*类推荐)", "IIa"),
     (r"(IIb\s*类推荐|Ⅱb\s*类推荐)", "IIb"),
-    (r"(II\s*类推荐|Ⅱ\s*类推荐)", "II"),
-    (r"(III\s*类推荐|Ⅲ\s*类推荐)", "III"),
-    (r"([（(]\s*证据级别\s*[:：]?\s*([ABCD])\s*[）)])", "level:{}"),
-    (r"([ABCD]\s*级证据)", "level:{}"),
+    (r"(II\s*类推荐|Ⅱ\s*类推荐|2\s*类推荐)", "II"),
+    (r"(I\s*类推荐|Ⅰ\s*类推荐|1\s*类推荐)", "I"),
+    (r"[（(]\s*证据级别\s*[:：]?\s*([ABCD])\s*[）)]", "level:{}"),
+    (r"([ABCD])\s*级证据", "level:{}"),
 )
 
 

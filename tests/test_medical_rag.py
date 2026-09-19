@@ -824,3 +824,29 @@ def test_pdf_table_cells_do_not_also_appear_as_text_blocks():
     kept = _drop_table_echo(text_blocks, [table])
     assert len(kept) == 1, "表格单元格的拍扁副本必须被丢掉"
     assert "剂量调整原则" in kept[0]["text"], "正文不能被误删"
+
+
+def test_evidence_class_and_grade_coexist_instead_of_cancelling():
+    """"I 类推荐（证据级别：A）" 是中文指南最标准的写法。
+
+    推荐类别与证据级别是两个正交维度，唯一性约束若跨维度统计，会把这种标准
+    写法判成"标记不唯一"而两个标记一起丢弃，导致最该被保留的强推荐反而没有等级。
+    """
+    from medical_rag.chunker import _resolve_evidence_level
+
+    text = "无禁忌者均应尽早给予阿司匹林。I 类推荐（证据级别：A）。"
+    assert _resolve_evidence_level(text, "", []) == "I（证据级别A）"
+    # 同一维度内真出现歧义时，仍然宁缺毋错
+    assert _resolve_evidence_level("既有I类推荐也有III类推荐", "", []) == ""
+
+
+def test_detect_evidence_level_does_not_let_class_one_shadow_class_three():
+    """re.search 会在 "III类推荐" 内部匹配到 "I类推荐"，顺序错了会反转临床结论。"""
+    from medical_rag.schema import detect_evidence_level
+
+    assert detect_evidence_level("（III类推荐）") == "III"
+    assert detect_evidence_level("（II类推荐）") == "II"
+    assert detect_evidence_level("（IIa类推荐）") == "IIa"
+    assert detect_evidence_level("（I类推荐）") == "I"
+    assert detect_evidence_level("A级证据") == "level:A"
+    assert detect_evidence_level("（证据级别：B）") == "level:B"
