@@ -426,6 +426,31 @@ def test_verifier_flags_uncited_dose_even_when_numbers_match():
     assert result["uncited_sentences"]
 
 
+def test_verifier_flags_bare_dose_not_adjacent_to_frequency_word():
+    """回归：动词隔开的裸剂量也必须被判违规。
+
+    reward 那份 DOSE_PATTERNS 只认"每次<数字><单位>"的紧邻写法，而模型编剂量时
+    常写成"每次加服500mg""建议服用500mg"——中间隔了动词。早期实现直接复用
+    reward 正则，导致这类句子既进不了 exempted_doses 也进不了 dose_violations，
+    凭空编的剂量被静默放行。
+    """
+    hits = [make_hit(DOSE_EVIDENCE, TIER_DRUG_LABEL)]
+    result = CitationVerifier(dose_exempt=True).verify(
+        "此外建议每次加服500mg以增强疗效。", hits
+    )
+    assert result["dose_violations"], "隔了动词的裸剂量同样属于自创剂量，必须判违规"
+    assert result["exempted_doses"] == []
+
+
+def test_verifier_does_not_treat_body_weight_as_dose():
+    """体重/年份这类描述性数字不是剂量，放宽召回后不能误伤。"""
+    evidence = "患者体重60kg，于2023年确诊，随访期间未出现不良反应。"
+    hits = [make_hit(evidence, TIER_DRUG_LABEL)]
+    result = CitationVerifier(dose_exempt=True).verify(evidence[:-1] + "[1]。", hits)
+    assert result["dose_violations"] == []
+    assert result["exempted_doses"] == []
+
+
 def test_verifier_disabling_dose_exempt_flags_every_dose_sentence():
     hits = [make_hit(DOSE_EVIDENCE, TIER_DRUG_LABEL)]
     answer = "二甲双胍普通片起始剂量为每次0.5g，每日2次，随餐服用可减轻胃肠道反应[1]。"

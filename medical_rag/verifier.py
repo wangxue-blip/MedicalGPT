@@ -130,7 +130,28 @@ except Exception as exc:  # ImportError 及路径/环境异常都算不可用
     HAS_REWARD_MODULE = False
 
 DOSE_PATTERNS = tuple(_REWARD_DOSE_PATTERNS)
-_DOSE_RES = tuple(re.compile(pattern) for pattern in DOSE_PATTERNS)
+
+# 供本模块额外使用的"裸剂量"正则，不并入 DOSE_PATTERNS，以免改变 reward 的罚分口径。
+#
+# 为什么必须补这一条：reward 那份正则是为"对齐阶段罚说剂量"设计的，只认
+# "每次<数字><单位>""每日<数字>次"这种紧邻写法。但核查阶段要回答的是另一个问题
+# ——"这个剂量数字是不是抄来的"。模型真实产出的幻觉剂量往往是
+# "每次加服500mg""建议服用500mg"这类中间隔了动词的说法，用 reward 口径去查会
+# 一条都查不出来，句子既进不了 exempted_doses 也进不了 dose_violations，等于
+# 凭空编的剂量被静默放行——这正是本模块要防的最高风险项。
+#
+# 因此这里按"数字 + 剂量单位"做宽召回：剂量单位本身就意味着这是一次用量声明,
+# 前面接什么动词都不改变它需要溯源的事实。单位表刻意不含 kg/公斤，避免把
+# "体重60kg" 这类描述性数字误判成剂量。宽召回只会让更多句子被要求给出出处，
+# 方向上是安全的：真抄自原文的句子仍会被 _dose_numbers_backed_by 放行。
+_BARE_DOSE_PATTERN = (
+    r"\d+(\.\d+)?\s*"
+    r"(mg|毫克|ml|毫升|μg|ug|微克|IU|国际单位|g|克|片|粒|颗|袋|支|滴|喷)"
+)
+
+_DOSE_RES = tuple(
+    re.compile(pattern) for pattern in DOSE_PATTERNS + (_BARE_DOSE_PATTERN,)
+)
 
 
 # --------------------------------------------------------------------------
