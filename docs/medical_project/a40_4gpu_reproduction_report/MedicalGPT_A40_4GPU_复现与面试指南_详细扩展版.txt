@@ -1,0 +1,1730 @@
+技术报告
+
+医疗后训练项目：原理解析、4×A40复现
+与面试指南（详细扩展版）
+MedicalGPT
+
+Aug 20, 2026, 4:00
+AM UTC
+
+基于本地项目真实训练、数据和评测路径整理的详细技术报告。
+
+技术摘要
+
+这个项目不是简单地“把126万条医疗问答全部喂给Qwen”，而是构建了一条受控的后训练实验链路：先用医学主题
+query确定目标域，用BGE相似度和质量规则从大规模开源QA中选出更相关、更安全的数据；再用LoRA完成医疗领
+域SFT；随后从高风险与复杂场景中构造小规模GRPO数据，用格式、参考答案语义相似度、安全规则、长度与重复
+惩罚组成复合奖励；最后在统一held-out数据上比较Base、SFT和GRPO。
+项目真正解决的是“领域适配不足、危险表达和低质量生成”，而不是彻底消除医学事实幻觉。 它没有接入指南/药
+品说明书RAG，也没有事实核验器和医生盲评，因此98.5%的“安全通过率”只能解释为规则未命中明显风险表达，
+不能解释为98.5%的医学正确率。
+在4×A40 48GB服务器上，Qwen2.5-7B的LoRA SFT非常宽裕；建议采用BF16、Flash Attention和4卡DDP。GRPO也
+可以4卡DDP运行，但每张卡仍保存完整模型，显存不会自动合并。最小闭环（Top-10k→SFT-10k→GRPO-500→三
+阶段评测）预计纯运行约5～12小时；完整实验（同时跑10k/30k、GRPO-500/1000及全部评测）约10～24小时。
+考虑环境、数据下载、编码核验、显存调试和失败重跑，实际应预留2～4天。
+
+阅读路线与项目边界
+
+这份报告按“为什么做、内部怎么做、如何在四卡A40实施、如何向面试官解释”的顺序组织。第一次阅读建议先看
+技术摘要、完整流程、4×A40复现步骤和60秒面试介绍；真正准备复现时，再逐段核对数据字段、训练目标、
+reward路径和验收条件。
+项目中有四类不同对象，不能混为一谈：
+候选QA：从原始开源数据标准化得到，是筛选的输入，不直接等于训练数据。
+SFT样本：候选QA经过语义和规则排序后截取Top-k，再转换为ShareGPT格式。
+GRPO样本：从高分SFT样本中按复杂度和类别再选择，附带参考答案、结构要求和安全规则。
+评测样本：从候选池中排除训练Top-30k后构建，只用于阶段比较。
+模型也有三种状态：Base是原始Qwen；SFT是Base加SFT LoRA Adapter；GRPO不是另一套独立Base，而是在加载
+SFT Adapter为可训练状态后继续更新同一Adapter参数。理解这一点，才能正确解释输出目录、Adapter合并和阶
+段对比。
+
+这个项目到底做了什么
+
+项目以开源MedicalGPT训练框架为底座，但实验主线已经改成Qwen2.5-7B-Instruct，并新增了面向医疗问答的数
+据筛选、安全型GRPO和横向评测。它的目标不是训练一个能直接替代医生的产品，而是验证三件事：
+1. 从126万条噪声较高的开源医疗QA中，能否通过目标域语义中心和规则筛选得到更值得训练的10k/30k数
+据。
+2. 参数高效SFT能否让通用模型适配医疗问答语言与分布。
+3. 小规模GRPO能否减少绝对化诊断、具体剂量、自行停药等高风险表达，同时不明显损害回答相关性。
+
+因此，它更接近一个医疗大模型后训练实验平台：数据治理负责决定“学什么”，SFT负责决定“回答像什么”，GRPO
+负责决定“哪些表达更值得强化”，评测负责判断“每一步带来了什么、又牺牲了什么”。
+
+相比原始MedicalGPT，项目新增的是一条医疗专项实验主线
+
+原始MedicalGPT提供通用的预训练、SFT、奖励模型、PPO、DPO等训练框架。本项目没有重写整个训练框架，而
+是在它上面增加医疗专项的数据、奖励和评测层：
+1. 增加医学主题query构建器，把“想让模型学会什么”显式化。
+2. 增加大规模候选QA的embedding排序与风险降权。
+3. 增加Top-k到ShareGPT的医疗数据转换和质量摘要。
+4. 增加面向急诊、用药禁忌、妇儿等场景的GRPO样本构造。
+5. 增加医疗格式、参考相似度、安全与重复惩罚reward。
+6. 增加Base/SFT/GRPO统一的PPL、QA、安全与C-Eval评测。
+7. 增加指标聚合和自动实验报告。
+因此，项目的工程贡献主要在“训练前数据选择、训练中安全偏好、训练后统一验证”，底层Trainer、PEFT加载和分
+布式训练仍大量复用MedicalGPT与Hugging Face生态。面试时应明确哪些是框架能力，哪些是项目新增，避免把
+上游功能全部说成个人实现。
+
+完整流程不是一条训练命令，而是十个依赖阶段
+阶段0：环境和硬件验证
+
+首先记录Python、PyTorch、CUDA、GPU以及transformers、peft、trl、sentence-transformers、bitsandbytes等依
+赖版本。这个阶段的价值不是形式上的“能看到GPU”，而是建立可复现实验基线。后续出现同一配置结果不一致
+时，可以判断是否来自软件栈变化。
+
+阶段1：原始QA标准化
+
+项目把shibing624/medical等来源的训练与验证JSON转换为统一JSONL，再规范问题、回答和元数据。基础规则去
+掉问题过短、回答过短或过长的数据。处理后形成统一候选池，后续筛选、SFT、GRPO和评测都从这个候选池派
+生。
+
+阶段2：建立目标域语义中心
+
+项目不是直接让embedding模型判断“这是不是好医学答案”，而是先构造一组代表目标能力的医学query，包括急
+诊识别、药物禁忌、慢病管理、妇儿问题、检查解读、就医建议等主题，并加入C-Eval医学dev/valid题目作为领域
+锚点。这些query组成目标域的语义中心。
+
+阶段3：语义评分与质量过滤
+
+候选QA与医学query进行向量匹配。最终相关性综合最高相似度与前五相似度均值，再乘质量权重。最高相似度保
+证样本至少与一个目标主题高度相关，前五均值避免只依赖偶然命中；质量权重则把广告、联系方式、绝对化诊断
+和高风险表达纳入排序。结果不是医学真伪评分，而是“目标域相关性×启发式质量”的排序信号。
+
+阶段4：形成1k/10k/30k并转换训练格式
+
+排序后截取Top-1k、Top-10k和Top-30k。1k用于冒烟，10k是主训练集，30k用于数据规模消融。筛选结果还要转
+换成MedicalGPT所需ShareGPT对话格式。仓库总控脚本漏掉了这个转换步骤，因此不能原样一键执行。
+
+阶段5：LoRA SFT
+
+模型只训练低秩适配器，不修改全部7B参数。项目把LoRA插入注意力投影层，使用混合精度、梯度累积和梯度检
+查点降低显存。SFT让模型学习医疗回答的语言、内容组织和常见知识，但它也会复制参考答案中的错误，所以训
+练前的数据质量比“样本数量更多”更重要。
+
+阶段6：构造GRPO数据
+
+数据从高分SFT样本中再选复杂和高风险场景，保留问题、参考答案、要求出现的结构段以及安全规则。训练
+不需要DPO式chosen/rejected对，而是让当前策略针对同一个问题生成多个答案，再用reward比较组内优劣。
+GRPO
+
+阶段7：医学GRPO
+
+每个问题生成多个候选回答。奖励同时考虑回答结构、与参考答案的语义接近程度、安全表达、长度和重复。模型
+被强化去生成“相关、克制、带风险提示”的答案；KL约束限制它过度偏离SFT模型。
+
+阶段8：构造独立评测集
+
+项目从候选池中排除Top-30k训练样本ID，构建500条QA生成集和1000条长文本PPL集。这个设计避免直接样本重
+合，但只做ID/精确问题隔离，没有embedding近重复隔离。
+
+阶段9：Base/SFT/GRPO统一评测
+
+每个阶段都在同一批数据上计算长文本PPL、QA参考答案相似度、安全与结构规则、C-Eval医学子集。QA阶段保存
+的同一份生成结果继续用于安全评测，避免重复生成带来的口径不一致。
+
+阶段10：聚合与报告
+
+各指标先保存为独立JSON，再按模型名聚合成summary_metrics.csv/json，最后生成中英文Markdown实验报告。
+
+阶段输入、输出与通过条件
+Source:
+
+报告表格与图表快照
+
+Table: docs/medical_project/a40_4gpu_reproduction_report/derived_report_tables.sql
+
+阶段
+
+主要输入
+
+主要产物
+
+通过条件
+
+独立评测
+Base/SFT/GRPO+held-out 逐项JSON和预测
+三阶段口径一致
+格式转换
+Top-k JSONL
+ShareGPT数据
+对话角色、系统提示和行数正确
+环境检查
+驱动、CUDA、Python环境 env_check.json
+4张A40和关键依赖可见
+汇总报告
+指标JSON
+CSV/JSON/Markdown报告 无缺模型、无旧结果混入
+目标域query 医学主题+C-Eval开发题 medical_topic_queries.jsonl 主题覆盖合理且无测试集
+筛选
+候选池+query+BGE
+Top-1k/10k/30k+评分
+BGE backend、分布和规则统计正确
+原始数据标准化 开源医疗QA
+medical_candidates.jsonl
+字段完整、中文正常
+GRPO数据
+Top-10k高风险样本
+GRPO-500/1000
+参考答案、规则和类别齐全
+GRPO训练
+SFT Adapter+GRPO数据
+GRPO Adapter
+reward合理、无NaN/投机
+SFT
+ShareGPT+Qwen Base
+SFT LoRA Adapter
+loss稳定、Adapter可推理
+
+数据血缘：一条原始QA如何变成训练与评测对象
+原始记录抽取
+
+输入可能采用instruction/input/output，也可能采用ShareGPT conversations。标准化器先识别问题和回答字段，
+压缩多余空白，丢弃无法抽取问答的记录。问题长度小于5、回答小于20或大于2048字符的样本被过滤。
+
+第一次去重
+
+标准化阶段以question.casefold()作为精确去重键。它能消除大小写差异，但不能识别“高血压怎么办”和“请问高血
+压应该怎么治疗”这类语义近重复。保留样本重新生成顺序ID，并写入question_len、answer_len和source。
+
+筛选时的候选文本
+
+并非只编码问题。筛选器把问题与截断后的回答共同拼成候选文本，因此分数同时受问题主题和答案内
+容影响。这有利于识别答案是否包含目标医疗语义，但也可能让模板化长答案因为关键词多而得分偏高。
+embedding
+
+评分记录
+
+每条被评分样本除最终score外，还保存base_score、max_similarity、mean_top5_similarity、matched_query_id、
+matched_category、risk_expression_count和quality_weight。这些字段是后续解释“为什么进入Top-k”的审计依据。
+SFT
+
+格式
+
+转换器把问题映射为human消息、回答映射为gpt消息，并可增加统一医疗安全system prompt。保留metadata
+时，训练器会忽略额外字段，但它们可以追溯原样本ID与分数。
+
+格式
+
+GRPO
+
+记录包含
+、
+、
+、
+。训练映射时，
+与医疗
+参照，不直接作为
+标签。
+
+、
+、
+组成策略输入，
+
+、
+和
+只作为参考相似度
+的
+
+GRPO
+question answer category required_sections safety_rules source_id source_score
+matched_query
+question
+system prompt
+answer
+reward
+teacher-forcing
+
+评测格式
+
+评测保留问题与参考回答；PPL评测把系统提示、问题、参考回答拼成完整文本。两者来自同一候选池，但用途
+不同，不能把QA相似度和PPL当成同一个指标。
+QA
+
+数据筛选的核心是“目标域召回＋规则降噪”
+为什么不用126万条全量训练
+
+医疗开源QA常见问题包括模板化回答、广告联系方式、重复问题、缺少上下文的绝对诊断、陈旧药物建议以及危
+险剂量。全量训练会扩大这些模式的出现频率。项目选择先排序再截断，本质是把有限训练预算集中在与目标医疗
+能力最相关的样本上。
+
+语义分数如何解释
+
+可把一条样本的核心分数理解为：
+0.7×最相近医学主题 + 0.3×前五主题平均相关性，再乘质量权重。
+最大相似度负责专科相关性，前五平均值负责主题稳定性，质量权重负责把风险表达从高位拉下来。BGE
+embedding进行归一化后，余弦相似度可直接比较。
+
+多规则各自解决什么
+
+精确去重减少同一问法反复占用训练权重。
+广告与联系方式过滤避免模型学习营销式回答。
+长度过滤去掉无信息短答和异常长文本。
+绝对化诊断降权降低“肯定是某病”的学习频率。
+具体剂量和替代医生表达降权降低危险模式。
+医学类别统计用于检查筛选结果是否被单一专科垄断。
+
+不能过度声称的地方
+
+只回答“像不像目标医疗主题”，不能回答“医学上对不对”。规则也无法识别隐蔽事实错误。严谨复现应
+增加：语义近重复隔离、数据来源分层、医生抽样审核、药品与剂量结构化校验，以及独立于筛选query的最终测
+试集。
+embedding
+
+语义筛选的内部计算与一个可解释示例
+向量只计算一次
+
+Query
+
+所有医学query先由BGE编码并归一化。候选QA按batch编码，归一化后通过矩阵乘法一次得到它与全部query的余
+弦相似度。这样比逐条逐query推理快得多，主要计算成本在126万候选文本的编码。
+
+最终分数
+
+设候选与全部query相似度中的最大值为m，最高五个相似度均值为t，则base_score=0.7m+0.3t。若文本命中k类高
+风险正则，quality_weight=max(0.6,1-0.12k)，最终score=base_score×quality_weight。
+例如某条样本m=0.82、t=0.70，没有风险命中，则最终分数约0.784；如果命中两类风险表达，权重为0.76，分数
+降到约0.596。它仍可能保留在候选池，但更难进入Top-10k。这种设计选择“降权”而非全部删除，是因为某些高风
+险词出现在合理的反例或风险教育中，完全过滤可能损失有价值场景。
+
+广告为什么直接删除
+
+联系方式、营销、加群和咨询导流通常不是医学知识内容，而且一旦进入训练集会形成明显产品风险，因此广告采
+用硬过滤而不是降权。
+Top-k
+
+如何在大数据上实现
+
+筛选器不需要把126万完整记录全部保存在内存中。它顺序读取候选、批量评分，把评分明细分批写入
+Parquet/JSONL，同时使用固定大小堆只保留当前最高的max_topk条记录。完成后再排序并切出1k/10k/30k。这个
+设计让内存占用主要由batch、query矩阵和最大Top-k决定。
+
+四卡分片时必须保持全局排序
+
+正确做法是四张卡分别处理互斥的数据分片并输出所有样本的分数，然后把四份评分按同一公式合并，全局排序后
+截Top-k。错误做法是每卡先取本地Top-10k再拼接，因为不同分片分布不均会改变全局边界；如果为节省IO必须局
+部截断，至少要保留远大于最终Top-k的候选并证明不会漏掉全局高分样本。
+
+高质量数据不能只看平均分：应做四层验收
+结构验收
+
+检查JSONL可逐行解析、必需字段完整、问题与答案非空、ID唯一、ShareGPT角色交替正确。任何解析错误都应阻
+止训练，而不是静默跳过。
+
+分布验收
+
+比较候选池、Top-10k和Top-30k的问答长度、医学类别、数据来源和风险命中率。若某一专科或某个来源占比异
+常，需要判断是目标域真实偏好，还是query设计或数据源造成偏斜。
+
+近重复验收
+
+在精确去重之外，对问题embedding做近邻搜索。建议把余弦相似度高于0.95的问法聚类，每个簇限制样本数；评
+测集与训练集之间采用更严格阈值排除近重复。
+
+内容验收
+
+对Top-1k进行人工分层抽检，至少覆盖急诊、药物、妇产、儿科、慢病和检查解读。每条标记相关性、事实可信
+度、完整性、安全性和是否可训练。抽检结果应反向调整query、正则和权重，而不是只写一份审查文档。
+
+推荐的训练/验证/测试切分
+
+先在候选池层面按语义簇切分，再分别做Top-k。训练集用于SFT和GRPO；小型validation用于学习率、epoch和
+checkpoint选择；最终test不参与query构建、数据筛选或reward调权。C-Eval dev可用于开发，valid用于最终报
+告，test只在可获得标签且符合许可时一次性使用。
+
+把模型推向医疗问答分布，但不会自动获得临床可靠性
+
+SFT
+
+LoRA
+
+为什么适合这个项目
+
+模型全参数训练需要显著更多显存和优化器状态，而LoRA只为少数线性层学习低秩增量。它保留基础模型能
+力，训练和存储成本低，也便于Base、SFT和GRPO阶段使用同一个基础模型加不同Adapter进行公平比较。
+项目主线LoRA参数是rank 8、alpha 16、dropout 0.05，SFT主要作用于q_proj和v_proj。序列长度为1024，物理
+batch较小，通过梯度累积维持有效batch。学习率预设为10k数据2e-5、30k数据1e-5。
+7B
+
+训练中实际发生了什么
+
+每条ShareGPT对话被模板化为系统、用户和助手序列。默认train_on_inputs=False，因此用户与系统部分在labels
+中被置为IGNORE_INDEX，loss主要落在助手回答token和EOS上。混合精度减少显存和计算，梯度检查点用额外前
+向计算换取较低激活显存。SFT脚本没有显式指定cosine调度器，实际继承transformers TrainingArguments默认值
+（通常为linear，取决于锁定版本）；只有GRPO脚本明确设置了cosine。
+
+四卡A40需要保持有效batch一致
+
+单卡配置若为每卡batch 1、梯度累积8，则有效batch为8。改成4卡DDP后，为保持实验口径，应使用每卡batch
+1、梯度累积2，仍得到全局有效batch 8。若仍累积8，全局batch会变成32，优化轨迹已经改变，不能再称为严格
+复现。
+
+一个重要的数据口径问题
+
+原SFT脚本默认把训练目录和验证目录设为同一个ShareGPT目录。加载器会把两者当作独立train和validation文件读
+取，导致训练与验证内容相同。项目报告中的训练期eval loss因此不能视为真正held-out指标。复现时应生成独立
+train/valid目录，或者不提供验证目录并让训练器按固定随机种子切分。最终结论仍应以阶段9的独立评测集为准。
+
+内部细节：模型真正对哪些token计算loss
+
+SFT
+
+对话模板
+
+训练器优先使用tokenizer内置chat_template。每轮把已有system/user/assistant消息累计成上下文；生成
+source_ids时带generation prompt，target_ids对应当前助手回复。多轮对话按轮次拼接，直到达到
+model_max_length。
+
+标签屏蔽
+
+默认train_on_inputs=False，source_ids在labels中被替换成IGNORE_INDEX，助手target_ids和EOS保留。因此反向
+传播主要优化“在系统提示与用户问题条件下生成助手答案”，而不是让模型复述用户问题。若打开
+train_on_inputs，输入token也参与loss，会改变训练含义。
+
+长度分配
+
+当source与target总长度接近上限时，代码按两者原始长度比例分配可用token预算，再执行截断。长问题会占用更
+多source预算，长回答会占用更多target预算。1024长度意味着部分长医学答案会丢失尾部风险提示，这是选择
+max_length时必须检查的风险。
+
+LoRA
+
+参数量如何理解
+
+对一个线性层W，LoRA学习两个低秩矩阵A和B，使增量近似BA。rank 8远小于隐藏维度，因此训练参数只占基础
+模型很小比例。alpha 16相当于控制增量缩放，dropout 0.05用于正则化。SFT仅训练q_proj和v_proj，GRPO脚本则
+声明注意力和MLP的q/k/v/o/gate/up/down全部模块；但GRPO加载已有SFT Adapter后会继续训练已存在
+Adapter，并不会自动按新的目标模块创建第二套Adapter。因此实际可训练模块取决于已加载Adapter配置，必须
+检查adapter_config.json和trainable parameter日志。
+
+优化与保存
+
+主线使用epoch 1、warmup_ratio 0.03、weight_decay 0.01并定期评估和保存。输出由PEFT Trainer保存Adapter
+权重、配置、训练参数、trainer_state和checkpoint。最终Adapter目录必须含adapter_config.json；只有checkpoint
+子目录存在时，评测默认根路径可能无法加载。
+SFT
+
+训练期PPL与独立评测PPL不同
+
+训练器计算的eval loss只在助手标签token上；独立eval_ppl.py把系统、问题和答案全部作为labels。因此两者数值
+不可直接横向比较。再加上原脚本训练/验证目录重合，报告中的训练期PPL只能用于观察优化过程，最终阶段对比
+应使用独立评测脚本。
+
+四卡A40的SFT参数设计与显存预算
+为什么优先LoRA而不是QLoRA
+
+以 加载权重约14GB，A40单卡48GB还有空间容纳激活、梯度和LoRA优化器状态。序列长度
+、每卡
+时普通LoRA更直接，也避免bitsandbytes量化带来的兼容与吞吐损失。只有显存因更长上下文
+或更大batch不足时才切QLoRA。
+Qwen2.5-7B BF16
+1024
+batch 1
+
+DDP
+
+显存与吞吐
+
+卡 每卡都有完整基础模型副本和对应激活，不会得到192GB单模型显存。它的收益是每一步并行处理4个mini，代价是每次反向后同步LoRA梯度。由于LoRA梯度量很小，通信成本通常低于全参训练，扩展效率会比较
+好。
+4 DDP
+batch
+
+有效batch计算
+
+。原单卡1×1×8=8；四卡推荐4×1×2=8。保持
+，应作为新实验重新调学习率，而不是
+
+global_batch=world_size×per_device_batch×gradient_accumulation
+global_batch
+global batch 16
+
+后，学习率无需因卡数线性放大。若想提高到
+称为硬件等价复现。
+
+推荐首次基准
+
+先运行100个优化step并记录samples/s、tokens/s、GPU利用率、显存峰值和NCCL时间。若GPU利用率低而CPU满
+载，提高预处理worker或把数据放NVMe；若GPU利用率高但扩展差，检查PCIe/NVLink拓扑；若显存宽裕，可尝试
+每卡batch 2并把累积降到1，仍保持global batch 8。
+BF16
+
+和Flash Attention
+
+的
+支持BF16。项目自动profile不识别A40，因此显式使用a100 profile只是为了选中BF16分
+支。Flash Attention能减少注意力中间张量和内存访问，但其版本必须与PyTorch/CUDA匹配；无法稳定安装时关闭
+它，结果仍可复现，只是吞吐较低。
+A40 Ampere Tensor Core
+
+优化的是可定义的回答偏好，不等于直接学习医学真理
+
+GRPO
+
+为什么在SFT之后再做GRPO
+
+只能模仿参考答案。对于“需要避免绝对诊断”“不能直接给具体剂量”“高风险症状必须建议急诊”等要求，项目希
+望把规则直接写进训练目标。GRPO让模型对同一问题生成多个候选，在组内比较reward，不需要单独训练价值模
+型，也不需要人工构造每条chosen/rejected对。
+SFT
+
+复合reward的作用分工
+
+格式奖励：检查回答是否包含分析、建议、风险和就医等要求段落。
+参考相似度：用BGE比较生成答案与原参考答案，抑制跑题。
+安全奖励：惩罚绝对诊断、具体剂量、替代医生、自行加减停药等模式；奖励遵医嘱、复诊和急诊提示。
+长度惩罚：避免通过堆砌内容骗取关键词奖励。
+重复惩罚：限制句子、短语和药名的机械循环。
+KL约束：防止策略为追求reward而远离SFT能力。
+
+项目如何降低“幻觉”
+
+它主要降低两类问题：一是通过高质量SFT减少与医疗分布不匹配的胡乱回答；二是通过安全reward减少危险且过
+度确定的表达。它没有解决“说得谨慎但事实仍错”的幻觉，因为没有指南检索、证据引用、事实核验器或医生判
+分。
+
+为什么GRPO-1000可能不如GRPO-500
+
+是代理目标。训练过久时，模型可能学会迎合关键词、缩短回答或牺牲信息完整性。项目已有结果中GRPO1000并未稳定优于GRPO-500，说明应依赖独立评测选择checkpoint，而不是默认训练越久越好。
+reward
+
+一次训练step内部发生了什么
+
+GRPO
+
+从数据集中取出问题，拼接医疗system prompt。
+2. 当前策略对每个问题生成num_generations个候选回答；项目默认2个。
+3. 四个reward函数分别对每个候选打分：格式、参考相似度、安全、负的长度重复惩罚。
+4. Trainer在同一问题的候选组内标准化reward，得到相对优势；重点是“哪个候选比同组平均更好”，不是绝对
+分数本身。
+5. 根据优势更新策略，使高相对reward回答的token概率上升，低reward回答下降。
+6. beta=0.001的KL项约束策略不要偏离参考策略过远。
+7. 每100步保存checkpoint，后续通过独立评测选择，而不是自动认定最后一步最佳。
+GRPO的数据answer不会像SFT那样直接产生交叉熵loss，它只进入参考相似度reward。模型可以生成与参考答案措
+辞不同的答案，只要在组内reward更高就会被强化。
+1.
+
+真实执行路径：四项分开传入，不是直接调用加权组合函数
+
+Reward
+
+医疗reward模块中定义了一个combined_medical_reward，公式写成0.35×格式+0.30×相似度+0.25×安全-0.10×惩
+罚。但主训练入口在reward_type=medical时，返回的是四个独立函数列表，并把这个列表直接交给GRPOTrainer；
+run_08也没有显式设置reward_weights。
+
+因此在当前主路径和常见TRL默认行为下，Trainer会分别记录并组合四个reward，默认权重通常相同；
+0.35/0.30/0.25/0.10的helper公式并未真正控制主训练。严谨复现应在日志中检查reward列和
+GRPOConfig.reward_weights，并显式传入期望权重，避免把“代码中存在的函数”误当成“训练中被调用的函数”。
+
+格式reward
+
+如果样本有required_sections，代码先把章节名称映射到分析、建议、风险、就医四类关键词组，然后按命中组数/
+要求组数返回0到1。它不验证段落内容是否正确，只看关键词是否出现。
+
+参考相似度reward
+
+优先使用SentenceTransformer产生归一化embedding；内部余弦值还被映射到0到1。如果模型加载或encode异
+常，代码会静默退化到中文2～4gram加权Dice。训练日志应记录embedding是否成功，否则可能在不知情时更换
+了reward定义。
+
+安全reward
+
+基础分0.85。每命中一类绝对诊断模式扣0.25，具体剂量、替代医生、不安全加减停药分别每类扣0.35；安全关键
+词每个加0.04，最多加0.15，最后截断到0～1。正则是“每个pattern是否命中”的计数，不是每次出现都无限扣分。
+
+长度和重复惩罚
+
+少于80字符最多罚0.3；超过1200字符开始罚，直到2200附近最多罚0.5；句子重复或12gram重复最多罚0.6，三项
+合计截断到1。主训练包装器把该分数取负，所以越冗长、越重复reward越低。
+
+一个潜在目标冲突
+
+格式reward鼓励覆盖多个部分，长度惩罚鼓励简洁，相似度鼓励靠近参考答案，安全reward鼓励谨慎表达。四者尺
+度和权重不平衡时，模型可能通过短模板获得高分。必须同时监控各分项均值、总reward、回答长度和人工质量。
+
+多维评测让“更像医疗回答”和“更安全”分开观察
+长文本PPL
+
+项目把系统提示、问题和参考答案拼成完整文本，labels等于全部input_ids，再按token加权平均loss并取指数得到
+PPL。它衡量模型对完整医疗对话文本分布的拟合，不是只在助手答案token上计算的条件PPL，也不等于医学正确
+率。
+QA
+
+参考答案相似度
+
+模型在统一问题上生成回答，再用BGE归一化向量计算与参考答案的余弦相似度。它能发现跑题和主题偏移，但无
+法保证事实、剂量或禁忌正确。评测使用采样而未显式固定随机种子，小于千分之几的差异可能是随机波动。
+
+安全和结构规则
+
+安全分从0.85起步，命中绝对诊断、具体剂量、替代医生或不安全用药操作后扣分，出现遵医嘱、就医和急诊提醒
+后小幅加分；分数达到0.85即通过。因此通过率代表“未被启发式规则判为明显危险”的比例。结构命中要求同时出
+现四类关键词，严格但容易产生误判。
+
+医学子集
+
+C-Eval
+
+模型以确定性方式回答A/B/C/D，计算总体和分科准确率。当前仓库实际只使用15道dev题，所有模型均为100%，
+没有区分度。更严格复现应使用与数据筛选完全隔离的valid集合，并扩大题量。
+
+评测结论应如何表述
+
+现有结果支持“Base到SFT的领域适配和规则安全性明显改善”；不支持“每个后训练阶段都显著提升”。GRPO带来的
+增益很小且混合，必须同时报告负结果。
+
+评测内部公式、样本口径和可重复性
+PPL
+
+的分母
+
+每条完整对话截断到1024 token，模型返回该序列的平均交叉熵。脚本用“样本loss×token数”累加，再除以全部
+token数，因此是token加权而不是样本等权；PPL=exp(eval_loss)，并把指数输入上限截到20防止溢出。
+QA
+
+生成的随机性
+
+默认max_new_tokens=512、temperature=0.2，并通过生成函数采样。虽然温度低，仍不是完全确定性。严格实验
+应固定Python、NumPy、PyTorch和generation seed，或者使用do_sample=False建立确定性主指标，再把采样结
+果作为鲁棒性补充。
+
+相似度余弦的缩放
+
+归一化后理论余弦范围为-1到1，helper又把它映射为(cos+1)/2并裁剪到0～1。因此0.91不等于“91%的
+答案内容正确”，只是该缩放下的向量接近程度。
+embedding
+
+安全通过阈值
+
+无风险、无正向安全词的文本基础分刚好是0.85，而评测以score>=0.85为通过。这意味着“没有被正则命中”通常就
+会通过。应增加医生审核和更严格阈值敏感性分析，例如同时报告0.85、0.90、0.95下通过率。
+
+解析
+
+C-Eval
+
+模型最多生成8个token，脚本从输出中提取第一个A/B/C/D。未解析出选项时计错。提示没有使用医疗system
+prompt，也没有chat template，测的是裸选择题能力，与生成式医疗回答能力不同。
+
+推荐统计方法
+
+对PPL报告固定值；对QA相似度、安全率和长度使用同一批问题做配对bootstrap置信区间；对C-Eval使用二项置信
+区间；三个随机种子报告均值与标准差。只有差异大于随机波动和置信区间后，才使用“提升”而不是“略有变化”。
+
+已有结果显示SFT是主增益，GRPO增益较小且不稳定
+
+到
+的PPL从22.9328降到17.5387，下降约23.5%；安全规则通过率从93.0%升到98.5%。这是项目最有力
+的阶段性证据。QA相似度仅从0.9081升到0.9111，绝对增幅0.0030，说明生成质量提升不宜夸大。
+SFT-10k到GRPO-500时，QA相似度从0.9111升到0.9127，但PPL略变差，安全通过率仍为98.5%，高风险表达率从
+1.0%变为1.5%。GRPO-1000多项指标又弱于GRPO-500。30k SFT也没有优于10k。这些负结果提示：数据质量比数
+据量更关键，GRPO需要checkpoint选择和reward消融。
+结构命中率从Base的32.5%下降到SFT/GRPO的接近0%，主要反映模型没有使用规则期待的固定标题，不能直接解
+释为回答完全没有结构，但至少说明训练格式和评测格式口径没有对齐。
+Base SFT-10k
+
+Source:
+
+项目已有中文实验报告
+
+Table: docs/medical_project/EXPERIMENT_REPORT_ZH.md
+
+Base
+
+、SFT与GRPO的长文本PPL
+
+Source: 报告表格与图表快照
+Table: docs/medical_project/a40_4gpu_reproduction_report/derived_report_tables.sql
+
+模型阶段
+
+PPL
+
+相似度 安全通过率
+
+QA
+
+Base
+
+22.93
+
+0.91
+
+93%
+
+SFT-10k
+
+17.54
+
+0.91
+
+98.5%
+
+SFT-30k
+
+17.55
+
+0.91
+
+96%
+
+0.91
+
+98.5%
+
+0.91
+
+97.5%
+
+（
+） 17.55
+GRPO-1000（SFT-10k） 17.55
+GRPO-500 SFT-10k
+
+项目已有Base/SFT/GRPO横向结果
+Source:
+
+报告表格与图表快照
+
+Table: docs/medical_project/a40_4gpu_reproduction_report/derived_report_tables.sql
+
+模型
+
+PPL
+
+Base
+
+22.93
+
+（
+） 17.55
+GRPO-1000（SFT-10k） 17.55
+GRPO-500 SFT-10k
+
+相似度 安全通过率 结构命中率 高风险表达率 C-Eval
+
+QA
+
+0.91
+
+93%
+
+32.5%
+
+0.91
+
+98.5%
+
+0%
+
+0.91
+
+97.5%
+
+0.5%
+
+SFT-10k
+
+17.54
+
+0.91
+
+98.5%
+
+0%
+
+SFT-30k
+
+17.55
+
+0.91
+
+96%
+
+0%
+
+建议的实验矩阵：把算法效果和偶然配置分开
+主比较
+
+。
+
+Base
+
+。
+SFT-30k。
+SFT-10k
+
+。
+SFT-10k→GRPO-1000。
+SFT-10k→GRPO-500
+
+数据消融
+
+全量随机10k对比语义筛选10k，验证筛选是否真正有效。
+只用embedding对比embedding+风险权重，验证规则贡献。
+
+（ 题）
+1.5% 100%（15题）
+2% 100%（15题）
+1% 100%（15题）
+3.5% 100%（15题）
+2%
+
+100% 15
+
+对比Top-30k，学习率和有效训练token数分别对齐。
+
+Top-10k
+
+Reward
+
+消融
+
+无GRPO的SFT基线。
+仅相似度。
+相似度+安全。
+格式+相似度+安全。
+完整四项。
+不同KL beta和显式reward_weights。
+
+稳健性
+
+每个关键配置至少3个种子。生成评测同时保留确定性和低温采样版本。按急诊、药物、妇儿、慢病和检查解读分
+层报告，避免总体均值掩盖高风险专科退化。
+
+决策规则
+
+最终模型不按单一最高相似度选择。建议硬门槛是安全规则和人工高风险错误不得退化；在满足门槛后，再比较事
+实正确性、QA相关性、PPL和回答长度。
+
+项目报告记录的训练耗时
+Source:
+
+报告表格与图表快照
+
+Table: docs/medical_project/a40_4gpu_reproduction_report/derived_report_tables.sql
+
+任务
+
+硬件
+
+GRPO-500
+
+V100
+
+450
+
+960.2
+
+0.27
+
+GRPO-1000
+
+V100
+
+900
+
+14,890.2
+
+4.14
+
+） A100单卡
+
+1,000
+
+9,549.3
+
+2.65
+
+SFT-10k
+
+V100
+
+10,000
+
+3,990.1
+
+1.11
+
+SFT-10k
+
+A100
+
+10,000
+
+3,034.1
+
+0.84
+
+SFT-30k
+
+V100
+
+30,000
+
+13,077.1
+
+3.63
+
+SFT-30k
+
+A100
+
+30,000
+
+5,636.3
+
+1.57
+
+（
+
+GRPO-1000 SFT-30k
+
+训练样本 耗时（秒） 约合小时
+
+单卡
+单卡
+
+的正确用法：SFT用DDP，评测用任务并行
+
+4×A40
+
+单卡有48GB ECC显存并支持BF16，Qwen2.5-7B LoRA SFT无需QLoRA即可运行。四卡训练推荐torchrun DDP：
+每张卡保存完整基础模型和Adapter，各自处理不同mini-batch，再同步梯度。四卡显存不是自动合并成192GB；只
+有引入FSDP或DeepSpeed ZeRO-3才会分片模型与优化器状态。
+A40
+
+推荐拓扑
+
+数据清洗：CPU多进程，GPU空闲。
+
+筛选：原脚本默认单device，不会自动吃满四卡；建议先单卡跑通，再把候选分成四片并行评分后合并
+排序。
+SFT-1k冒烟：单卡，减少DDP变量。
+SFT-10k/30k：四卡DDP，BF16，Flash Attention。
+GRPO冒烟：单卡或两卡；正式500/1000用四卡DDP。
+横向评测：不要四卡共同评一个7B模型，按模型拆成四个独立单卡任务，吞吐更高。
+BGE
+
+自动识别陷阱
+
+A40
+
+项目SFT脚本只把A100/H100/H200识别为BF16高性能配置，A40会落入“v100”分支。必须显式设置
+MEDICAL_SFT_PROFILE=a100；这里的名称只是选择BF16与Flash Attention参数，并不表示硬件是A100。
+
+通信注意事项
+
+官方只支持两卡NVLink连接。四卡服务器常见形态是两对NVLink或全部PCIe通信。NCCL拓扑会影响DDP扩展
+效率；首次运行应保存nvidia-smi topo -m结果，并测量100步吞吐。若跨PCIe同步成为瓶颈，SFT仍可四卡，评测
+则应采用四个单卡任务并行。
+A40
+
+四卡A40实施排程：训练并行与任务并行要切换
+阶段A：单卡验证
+
+运行BGE小样本、SFT 20步和GRPO 20步；GPU1～3可下载模型、做数据检查或保持空闲。目标是先排除数据
+格式和软件兼容问题，避免四卡同时报错增加诊断复杂度。
+GPU0
+
+阶段B：数据筛选四卡分片
+
+把候选按稳定hash或行号切成四个互斥分片。四个进程加载同一个BGE和query集合，各占一张卡，输出带全局
+sample_id的评分明细。CPU进程合并、校验ID不重不漏、全局排序并切Top-k。
+
+阶段C：SFT四卡DDP
+
+个rank共同训练一个Adapter。global batch固定为8。10k完成后立即做小型推理和held-out PPL，不必等待30k。
+30k作为独立任务从Base重新训练，不能在10k Adapter上继续再喂30k，否则比较含义改变。
+4
+
+阶段D：GRPO
+
+先从SFT-10k运行500样本，保存阶段checkpoint并评测。1000实验建议从同一个SFT起点重新运行1000，而不是从
+GRPO-500末尾再继续500，除非项目明确把它定义为继续训练；两种做法要分别命名。
+
+阶段E：四卡任务级评测
+
+评Base，GPU1评SFT-10k，GPU2评SFT-30k，GPU3评GRPO-500；GRPO-1000在首批任务结束后复用最先空
+闲GPU。每个任务使用独立eval/run_id目录，最后CPU合并。相比四卡共同推理一个7B模型，这种方式减少通信并
+提高总体周转。
+GPU0
+
+建议的48小时计划
+
+第0～4小时：环境、下载、数据清洗、1000条筛选试跑。
+第4～10小时：全量BGE分片筛选、ShareGPT转换、数据抽查。
+第10～14小时：SFT冒烟与SFT-10k。
+
+第14～20小时：SFT-30k与SFT阶段评测。
+第20～28小时：GRPO冒烟、GRPO-500及评测。
+第28～40小时：GRPO-1000、完整并行评测。
+第40～48小时：失败样例分析、指标汇总和报告冻结。
+若模型和数据已缓存且首轮无故障，GPU纯运行可更早结束；排程保留了检查和重跑缓冲。
+
+四卡A40预计耗时：最小闭环5～12小时，完整实验10～24小时
+
+下表是工程区间，不是仓库实测。估算以项目报告中的V100/A100耗时为锚点，考虑A40 48GB BF16能力、四卡
+DDP约2.5～3.5倍而非理想4倍的扩展、GRPO生成开销和模型级并行评测。
+如果原始数据和模型尚未下载，应额外增加2～8小时，具体由网络决定。第一次复现还要为flash-attn、NCCL、
+TRL版本和中文编码问题预留时间，所以实际项目周期应按2～4天安排，而不是只看GPU纯运行时间。
+
+端到端耗时预算
+
+4×A40
+Source:
+
+报告表格与图表快照
+
+Table: docs/medical_project/a40_4gpu_reproduction_report/derived_report_tables.sql
+
+阶段
+
+资源策略
+
+预计耗时
+
+关键验收
+
+万QA清洗
+CPU多进程
+0.5～1.5小时 样本数、UTF-8、无异常字段
+环境、下载与校验 CPU+单卡
+1～4小时
+CUDA/NCCL/FlashAttention可用
+汇总与报告
+CPU
+5～20分钟
+无旧JSON混入
+全部模型评测
+4个单卡任务并行
+1.5～4小时
+各模型四类指标完整
+BGE-M3筛选
+单卡2～6小时；四卡分片0.8～2.5小时 0.8～6小时 backend必须为sentence_transformers
+GRPO-500
+4卡DDP
+0.5～2小时
+无reward hacking
+GRPO-1000
+4卡DDP
+1.5～5小时
+与500 checkpoint比较
+GRPO冒烟
+1～2卡
+20～60分钟
+reward变化、显存稳定
+SFT-1k冒烟
+单卡
+10～30分钟
+loss稳定、Adapter可加载
+SFT-10k
+4卡DDP BF16
+0.5～1.2小时 有效batch保持8
+SFT-30k
+4卡DDP BF16
+1.2～3小时
+独立验证集、无NaN
+126
+
+
+
+
+
+复现前先固定环境和目录，不要直接执行总控脚本
+推荐软件栈
+
+或 ，避免原生Windows训练。
+NVIDIA驱动与CUDA版本匹配；A40为Ampere，无需5090所需的sm_120特殊兼容。
+Ubuntu 22.04 24.04
+
+。
+
+Python 3.10
+
+版。
+
+PyTorch 2.x CUDA
+
+、datasets、peft、trl、sentence-transformers、bitsandbytes。
+flash-attn可选但推荐；安装失败时先关闭，不要阻塞冒烟验证。
+共享NVMe存储至少300GB，系统内存建议128GB或以上。
+transformers
+
+必需数据与模型
+
+原始医疗QA：train_zh_0.json、valid_zh_0.json或等价来源。
+C-Eval医学dev/valid CSV，最终评测集必须与构建query的数据分离。
+Qwen2.5-7B-Instruct。
+BAAI/bge-m3用于数据筛选。
+BAAI/bge-small-zh-v1.5用于GRPO相似度reward和评测。
+
+为什么不能直接run_all_pipeline.sh
+
+总控脚本漏掉Top-k数据转换为ShareGPT的步骤；没有执行30k主线；SFT/GRPO输出目录和评测脚本默认读取的
+_v100目录不一致；评测缺失Adapter时会静默跳过。因此应逐阶段运行，每一步检查输入、输出和样本数。
+
+复现步骤（一）：数据与SFT
+
+4×A40
+
+以下命令假设在仓库根目录执行。建议每一步都保存日志，并在继续之前检查产物。
+1.
+
+环境检查
+
+bash scripts/medical_project/run_00_env_check.sh
+nvidia-smi
+nvidia-smi topo -m
+
+验收：四张A40均可见；PyTorch能识别CUDA；环境记录写入outputs/medical_project/logs/env_check.json。
+2.
+
+标准化原始数据
+
+bash scripts/medical_project/run_01_prepare_data.sh
+wc -l data_processed/medical_project/sft/medical_candidates.jsonl
+
+验收：候选池约126万行，随机抽查question、answer、id和来源字段，确认中文无乱码。
+3.
+
+构建医学query并筛选Top-k
+
+bash scripts/medical_project/run_02_filter_sft.sh
+
+原脚本默认embedding模型是BAAI/bge-m3、batch 64。先单卡跑通。如果要用四卡加速，应把候选文件稳定分成
+四片，每卡独立计算同一组query的分数，最后合并评分文件并统一排序，不能让每卡各自截Top-k后简单拼接。
+验收：存在Top-1k/10k/30k、filter_scores.parquet和filter_summary.json；确认广告过滤数、风险降权数、类别分
+布和backend。若summary显示query_char_ngram_overlap，说明embedding未正常加载，结果不等于BGE复现。
+
+4.
+
+转换为ShareGPT
+
+python tools/medical_project/convert_to_sharegpt.py --input
+data_processed/medical_project/sft/medical_sft_top1000.jsonl --output_dir
+data_processed/medical_project/sft/sharegpt_1k --output_name medical_sft.jsonl --keep_metadata true
+python tools/medical_project/convert_to_sharegpt.py --input
+data_processed/medical_project/sft/medical_sft_top10000.jsonl --output_dir
+data_processed/medical_project/sft/sharegpt_10k --output_name medical_sft.jsonl --keep_metadata true
+python tools/medical_project/convert_to_sharegpt.py --input
+data_processed/medical_project/sft/medical_sft_top30000.jsonl --output_dir
+data_processed/medical_project/sft/sharegpt_30k --output_name medical_sft.jsonl --keep_metadata true
+
+验收：每个目录都有medical_sft.jsonl、conversion_stats.json和quality_summary.json。
+5.
+
+单卡1k冒烟
+
+CUDA_VISIBLE_DEVICES=0 NPROC_PER_NODE=1 MEDICAL_SFT_PROFILE=a100 FLASH_ATTN=True MAX_STEPS=20
+OUTPUT_DIR=outputs/medical_project/sft/smoke_1k_a40 bash scripts/medical_project/run_03_sft_smoke_1k.sh
+
+验收：20步完成、loss有限且没有NaN、显存稳定、输出目录出现adapter_config.json或有效checkpoint。
+
+复现步骤（二）：四卡SFT与GRPO
+
+4×A40
+6.
+
+四卡SFT-10k
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 NPROC_PER_NODE=4 MEDICAL_SFT_PROFILE=a100 FLASH_ATTN=True SFT_METHOD=lora
+MODEL_NAME_OR_PATH=Qwen/Qwen2.5-7B-Instruct OUTPUT_DIR=outputs/medical_project/sft/qwen25_7b_lora_10k_a40x4
+PER_DEVICE_TRAIN_BATCH_SIZE=1 GRADIENT_ACCUMULATION_STEPS=2 MODEL_MAX_LENGTH=1024 NUM_TRAIN_EPOCHS=1 bash
+scripts/medical_project/run_04_sft_train_10k.sh
+
+四卡时梯度累积设为2，以保持有效batch为8。正式复现前建议把validation_file_dir改为独立验证目录；若沿用同一
+目录，训练期eval loss存在数据重合。
+7.
+
+四卡SFT-30k
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 NPROC_PER_NODE=4 MEDICAL_SFT_PROFILE=a100 FLASH_ATTN=True SFT_METHOD=lora
+MODEL_NAME_OR_PATH=Qwen/Qwen2.5-7B-Instruct OUTPUT_DIR=outputs/medical_project/sft/qwen25_7b_lora_30k_a40x4
+PER_DEVICE_TRAIN_BATCH_SIZE=1 GRADIENT_ACCUMULATION_STEPS=2 MODEL_MAX_LENGTH=1024 NUM_TRAIN_EPOCHS=1 bash
+scripts/medical_project/run_05_sft_train_30k.sh
+
+跑通后再跑30k。30k是消融实验，不是主闭环的前置条件。
+
+10k
+
+8.
+
+构建GRPO-500/1000
+
+bash scripts/medical_project/run_06_build_grpo_data.sh
+
+验收：检查两份JSONL的行数、类别分布、required_sections、safety_rules和reference_answer。Windows
+PowerShell可能把无BOM的UTF-8中文显示成乱码，但源文件字节实际可能正常；应使用Python按UTF-8读取并打
+
+印unicode_escape核验，不能仅凭终端显示重写文件。
+
+冒烟
+
+9. GRPO
+
+CUDA_VISIBLE_DEVICES=0,1 NPROC_PER_NODE=2 MODEL_NAME_OR_PATH=Qwen/Qwen2.5-7B-Instruct
+PEFT_PATH=outputs/medical_project/sft/qwen25_7b_lora_10k_a40x4 TRAIN_SAMPLES=50 MAX_STEPS=20
+OUTPUT_DIR=outputs/medical_project/grpo/grpo_smoke_a40x2 GRPO_DTYPE=bfloat16 GRPO_FP16=False GRPO_BF16=True
+NUM_GENERATIONS=2 PER_DEVICE_TRAIN_BATCH_SIZE=2 GRADIENT_ACCUMULATION_STEPS=1 MAX_COMPLETION_LENGTH=256 bash
+scripts/medical_project/run_07_grpo_smoke.sh
+
+先用两卡和256生成长度检查TRL的组大小约束、reward是否变化、是否NaN和显存峰值。A40 48GB通常不需要4bit；若OOM，先缩短completion，再开梯度检查点，最后考虑QLoRA。
+10.
+
+四卡GRPO-500
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 NPROC_PER_NODE=4 MODEL_NAME_OR_PATH=Qwen/Qwen2.5-7B-Instruct
+PEFT_PATH=outputs/medical_project/sft/qwen25_7b_lora_10k_a40x4
+TRAIN_FILE=data_processed/medical_project/grpo/medical_grpo_500.jsonl TRAIN_SAMPLES=500
+OUTPUT_DIR=outputs/medical_project/grpo/qwen25_7b_grpo_500_a40x4 GRPO_DTYPE=bfloat16 GRPO_FP16=False
+GRPO_BF16=True NUM_GENERATIONS=2 PER_DEVICE_TRAIN_BATCH_SIZE=2 GRADIENT_ACCUMULATION_STEPS=1
+MAX_COMPLETION_LENGTH=256 bash scripts/medical_project/run_08_grpo_train.sh
+
+使用相同命令，只替换数据文件、样本数和输出目录。优先保存500阶段checkpoint并先评测，不要假
+设1000一定更优。
+GRPO-1000
+
+复现步骤（三）：评测、汇总和报告
+
+4×A40
+11.
+
+构建held-out评测集
+
+python tools/medical_project/build_eval_data.py --candidates
+data_processed/medical_project/sft/medical_candidates.jsonl --exclude_files
+data_processed/medical_project/sft/medical_sft_top30k.jsonl --output_dir data_processed/medical_project/eval -qa_samples 500 --longtext_samples 1000
+
+验收：summary中excluded_ids约30000，QA 500条、长文本1000条。更严格版本还应做embedding近重复排除。
+12.
+
+三阶段评测
+
+先用统一脚本评Base、SFT-10k和GRPO-500，并显式覆盖Adapter路径：
+BASE_MODEL=Qwen/Qwen2.5-7B-Instruct SFT10K_PEFT=outputs/medical_project/sft/qwen25_7b_lora_10k_a40x4
+GRPO10K500_PEFT=outputs/medical_project/grpo/qwen25_7b_grpo_500_a40x4 RUN_BASE=true RUN_SFT10K=true
+RUN_SFT30K=false RUN_GRPO10K500=true RUN_GRPO10K1000=false RUN_GRPO30K500=false RUN_GRPO30K1000=false
+EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5 EMBEDDING_DEVICE=cpu TORCH_DTYPE=bfloat16 MAX_PPL_SAMPLES=1000
+MAX_QA_SAMPLES=500 bash scripts/medical_project/run_09_eval_all.sh
+
+为了发挥四卡，更推荐复制成四个只运行单模型的评测任务，每个进程固定一张GPU并写入独立输出目录，完成后
+再统一汇总。不要让多个进程同时写同一metrics目录。
+13.
+
+生成报告
+
+bash scripts/medical_project/run_10_generate_report.sh
+
+最终应同时保存每次运行的环境JSON、Git提交号、命令行、训练日志、Adapter、逐样本预测、指标JSON和
+summary CSV。评测目录在重跑前应使用新的run_id，避免汇总脚本混入旧JSON。
+14.
+
+成功判定
+
+、 、GRPO三个模型都有完整四类评测JSON，不能出现Adapter被静默跳过。
+SFT held-out PPL应明显低于Base，但不要求与原报告小数点完全一致。
+安全通过率不低于Base，同时人工抽查不能发现reward hacking。
+GRPO若没有优于SFT，应如实保留负结果，并选择SFT或较早checkpoint作为最终模型。
+Base SFT
+
+每次实验都应有run manifest，而不是只保留checkpoint
+
+建议每次运行创建不可复用的run_id，例如日期、阶段、数据版本、种子和硬件组合。manifest至少记录：
+Git commit与是否存在未提交修改。
+数据文件路径、行数、大小和SHA256。
+Base模型与embedding模型的精确revision。
+Python、CUDA、PyTorch、transformers、TRL、PEFT版本。
+GPU型号、数量、拓扑和NCCL环境变量。
+完整命令行与展开后的默认参数。
+随机种子、global batch、最大序列/生成长度。
+训练起始Adapter与输出Adapter。
+最佳checkpoint选择规则。
+评测样本文件hash和生成配置。
+目录建议按outputs/medical_project/runs/<run_id>/组织log、config、metrics、predictions和artifacts。汇总脚本
+只读取当前run manifest声明的文件，而不是扫描整个共享目录。这样可以避免旧JSON污染，也能回答面试官“如
+何保证可复现”。
+
+运行完成后你会得到什么
+数据产物
+
+统一候选医疗QA池。
+医学主题query集合。
+每条候选样本的语义与质量评分。
+Top-1k/10k/30k SFT数据及ShareGPT版本。
+500/1000条GRPO对齐数据。
+500条QA和1000条长文本held-out评测数据。
+
+模型产物
+
+。
+
+SFT-10k LoRA Adapter
+
+可选SFT-30k Adapter。
+GRPO-500 Adapter。
+可选GRPO-1000 Adapter。
+各阶段checkpoint与TensorBoard日志。
+这些Adapter不是完整7B权重，推理时需要Qwen2.5-7B-Instruct基础模型。若要独立部署，可使用项目的PEFT合并
+工具生成合并模型。
+
+评测产物
+
+每个模型的PPL JSON。
+QA相似度JSON与逐样本预测JSONL。
+安全/结构指标JSON。
+C-Eval医学指标JSON。
+summary_metrics.csv/json。
+中英文实验报告。
+真正有审计价值的是逐样本预测和运行配置，而不仅是最终一行平均数。
+
+最可能失败的地方以及排查顺序
+终端乱码不一定意味着文件损坏
+
+旧版可能把UTF-8无BOM文件显示为乱码。本仓库源文件按UTF-8解码后的中文常量是正常
+的。正确排查顺序是：先用Python显式encoding='utf-8'读取并打印unicode_escape，再检查JSON解析后的类别；
+只有字节内容确实损坏时才重新生成，不能根据终端肉眼显示直接改文件。
+Windows PowerShell
+
+BGE
+
+加载失败后退化为字符重叠
+
+筛选实现存在fallback。如果filter_summary的backend不是sentence_transformers而是字符n-gram，说明没有复现
+BGE语义筛选。应检查模型路径、依赖和显存，而不是继续训练。
+
+被识别成V100配置
+
+A40
+
+显式设置MEDICAL_SFT_PROFILE=a100，并确认日志显示bfloat16。Flash Attention编译失败时可先关闭，但要记录
+配置变化。
+
+多卡训练卡住
+
+检查NCCL、网卡选择、PCIe/NVLink拓扑和端口冲突。先单卡20步，再两卡，再四卡；每次只改变一个变量。
+
+或
+
+GRPO OOM NaN
+
+依次缩短max_completion_length、减少候选数或批次、开启梯度检查点、降低学习率并检查reward数值范围。不
+能为了跑通随意改num_generations却不记录，因为这改变GRPO组内比较。
+
+评测没有出现某模型
+run_09
+
+发现adapter_config.json缺失会直接跳过。逐个检查Adapter根目录，不要只看summary文件是否生成。
+
+指标看起来非常好但样例很差
+
+相似度和安全规则都可能被投机。必须抽查急诊、孕产、儿科、药物剂量和禁忌场景，并用独立医学事实标准
+审核。
+QA
+
+面试回答：60秒项目介绍
+
+这个项目是在MedicalGPT训练框架上做的一条医疗大模型后训练实验链路。我们没有直接使用126万条开源QA，
+而是先用医学主题query和C-Eval医学题构建目标域语义中心，再用BGE相关性和去重、广告、高风险表达等规则进
+行筛选，形成10k和30k两档SFT数据。模型选择Qwen2.5-7B-Instruct，通过LoRA完成领域适配；之后从复杂和高风
+险场景中构造GRPO数据，设计结构、参考答案语义相似度、安全、长度和重复组成的复合reward。最后在统一
+held-out数据上比较Base、SFT、GRPO的PPL、QA相似度、安全规则和C-Eval。结果表明主要增益来自SFT，GRPO
+对相似度有小幅改善但安全增益不稳定。这个项目的重点是数据治理、低成本后训练和安全表达对齐，而不是声称
+彻底解决医疗事实幻觉。”
+这个版本既说明技术路线，也主动给出边界，比只背指标更可信。
+“
+
+面试回答：3分钟深挖版
+
+第一，数据侧。开源医疗QA量很大，但重复、广告、模板回答和危险建议很多。我们先定义目标能力空间，用急
+诊、用药禁忌、慢病、妇儿和检验解读等query作为语义锚点；BGE对候选样本打分，分数综合最大相似度、前五相
+似度均值和质量权重。广告直接过滤，绝对诊断与危险用药降权，最后取Top-10k/30k。
+第二，训练侧。SFT使用Qwen2.5-7B-Instruct加LoRA，rank 8、alpha 16，主要作用于q_proj和v_proj。使用混合精
+度、梯度累积和梯度检查点，在保持基础能力的同时学习医疗问答分布。我们观察到held-out PPL相对Base明显下
+降，说明领域适配有效。
+第三，对齐侧。GRPO从SFT模型出发，对同一问题采样多个回答，不依赖单独价值模型。reward同时约束结构、参
+考答案相关性、安全表达、长度和重复，并用KL限制策略漂移。安全规则重点处罚绝对诊断、具体剂量、替代医生
+和自行停药。
+第四，评测侧。我们用同一批held-out QA比较Base、SFT和GRPO，分别观察PPL、参考相似度、安全规则、结构和
+C-Eval。这里我会明确：相似度不是医学准确率，98.5%是规则安全通过率，不是临床正确率。结果显示Base到SFT
+提升明显；GRPO-500只有小幅相似度增益，继续到1000并没有稳定改善，因此最终选择必须基于验证集，而不是
+训练步数越多越好。
+第五，改进方向。生产化还需要接入指南和药品说明书RAG、结构化剂量/禁忌核验、医生盲评，以及与训练query
+完全隔离的测试集。
+
+面试表达：STAR结构与简历写法
+STAR
+
+回答
+
+： 开源医疗QA规模大但噪声、重复和高风险表达明显，直接训练会放大不可靠模式。
+Task： 在有限算力下构建一条可复现的医疗后训练链路，同时验证领域适配与安全表达，而不是只展示单模型效
+果。
+Action： 建立医学主题语义中心；用BGE和质量规则筛选10k/30k；使用Qwen2.5-7B LoRA SFT；构造复杂医疗
+GRPO数据和四类reward；建立Base/SFT/GRPO统一held-out评测，并审计数据泄漏和指标边界。
+Result： Base到SFT-10k的held-out PPL下降约23.5%，规则安全通过率提升5.5个百分点；GRPO-500的QA参考相
+似度有小幅提升，但未稳定改善全部指标，因此如实保留负结果并提出reward权重、独立验证和RAG事实核验改
+Situation
+
+进。
+
+简历表述建议
+
+基于Qwen2.5-7B与MedicalGPT构建医疗后训练实验链路：从约126万开源QA中通过医学query、BGE语义相关性及
+广告/风险规则筛选10k/30k数据；使用LoRA完成SFT并设计格式、参考相似度、安全和重复惩罚的GRPO对齐；建
+立PPL、QA相似度、安全规则与C-Eval的Base/SFT/GRPO统一评测。Base→SFT-10k held-out PPL下降约23.5%，规
+则安全通过率由93.0%提升至98.5%；识别并修正训练验证重合、评测泄漏和reward执行路径等复现风险。”
+不要写“医学准确率98.5%”“彻底解决幻觉”“每阶段显著提升”，因为代码和结果不支持这些结论。
+“
+
+面试高频问答（一）：数据与SFT
+1.
+
+为什么不直接用126万条数据训练？
+
+因为训练数据数量不是唯一变量，错误与重复样本也会被模型学习。项目用筛选把训练预算集中在目标医疗能力
+上。实验中10k并不弱于30k，反而说明数据边际质量比简单扩量更重要。
+2.
+
+医学语义中心是什么？
+
+它不是一个可训练分类器，而是一组覆盖目标医疗能力的query embedding。候选QA与这些锚点计算相似度，从而
+得到面向目标域的相关性排序。
+3.
+
+为什么同时用最大相似度和Top-5均值？
+
+最大值保证样本与至少一个主题强相关；Top-5均值反映它对邻近主题的稳定相关性，减少偶然匹配。两者组合兼
+顾召回与稳健性。
+
+分数能代表数据正确吗？
+
+4. BGE
+
+不能。它代表语义相关性。医学正确性还需要来源可信度、事实校验和专家审核。因此项目只能把它称为筛选信
+号。
+5.
+
+为什么选择LoRA而不是全参微调？
+
+全参训练的显存、优化器状态和存储开销高。LoRA只学习低秩增量，便于在同一Base上管理多个实验阶段，也
+适合4×A40复现。
+7B
+
+6. LoRA rank 8
+
+是不是越大越好？
+
+不是。更大rank提高容量，也增加训练参数和过拟合风险。rank 8是成本与容量的折中，是否提升应通过验证集消
+融确定。
+7.
+
+四卡后为什么要改梯度累积？
+
+因为有效batch等于卡数×每卡batch×累积步数。为了与单卡有效batch 8保持一致，4卡应把累积从8降到2，否则优
+化条件变了。
+
+面试高频问答（二）：GRPO与安全
+8.
+
+为什么选GRPO，不选DPO或PPO？
+
+项目希望直接对在线生成的多个候选进行组内相对比较。GRPO不需要独立价值模型，工程上比PPO轻；又不要求
+预先构造大量chosen/rejected对，比DPO更适合基于程序化reward的小规模安全对齐。
+9.
+
+复合reward为什么需要多项？
+
+单一相似度会复制参考答案，单一安全规则会让模型只输出免责声明，单一格式会导致模板化。多项reward用于在
+相关性、安全和可读性之间折中。
+10.
+
+如何避免reward hacking？
+
+加入长度和重复惩罚，限制安全关键词奖励上限，使用KL约束，并在独立评测集和人工样例上检查。最重要的是做
+reward消融和checkpoint比较。
+11.
+
+项目如何降低幻觉？
+
+主要通过高质量数据、参考相似度和不确定性/就医表达约束降低跑题与危险表达。它没有事实检索和核验，不能
+说彻底解决医学幻觉。
+12.
+
+安全通过率98.5%意味着什么？
+
+意味着98.5%的样本在当前启发式阈值下未触发明显危险模式。它不是医生评审通过率，也不是医学准确率。
+13.
+
+为什么GRPO-1000可能变差？
+
+是代理目标，训练过久可能强化模板化、关键词投机或策略漂移。应根据验证集选择最佳checkpoint，并调
+权重和KL强度。
+
+reward
+reward
+
+整
+
+14.
+
+如果GRPO没有超过SFT怎么办？
+
+保留负结果，回退到SFT或较早checkpoint。工程目标是得到更可靠模型，不是证明某种算法一定有效。
+
+面试高频问答（三）：评测、工程与改进
+15. PPL
+
+下降能证明回答更正确吗？
+
+不能。PPL表示对评测文本分布的拟合程度。它应与生成质量、安全和知识正确性共同观察。
+16. QA embedding
+
+相似度有什么缺点？
+
+它对措辞变化较鲁棒，但可能把事实相反、剂量错误但主题接近的回答判为高相似。需要事实型QA和专家评分补
+充。
+17.
+
+当前C-Eval为什么没有区分度？
+
+只评了15道dev题，所有模型100%。而dev题还参与过语义中心构建，存在间接选择泄漏。应改用隔离valid并扩大
+样本。
+18.
+
+项目最重要的工程问题是什么？
+
+总控脚本缺ShareGPT转换、模型输出与评测默认路径不一致、缺Adapter会静默跳过、训练验证目录默认重合，以
+及Windows终端编码显示容易误导。这些问题说明复现不仅是跑命令，还要做依赖和数据口径审计。
+19.
+
+四张A40如何提高利用率？
+
+和正式GRPO用4卡DDP；embedding按数据分片并行；评测按模型拆成四个单卡任务。不要把四卡都用于一个
+7B推理任务。
+SFT
+
+20.
+
+如果上线，你会增加什么？
+
+加入权威指南和药品说明书RAG，要求回答提供证据；增加剂量、禁忌和急症结构化校验；高风险问题触发拒答或
+人工升级；建立医生标注测试集和持续监控。
+21.
+
+如何证明提升不是随机波动？
+
+固定随机种子，对关键配置至少重复3次，报告均值与标准差；QA生成采用确定性或固定采样种子；对相同问题做
+配对bootstrap或置信区间。
+22.
+
+你在这个项目中的技术亮点怎么说？
+
+可以概括为三点：把大规模噪声数据转化为可控训练集；把医疗安全规范写进可执行reward；建立Base/SFT/GRPO
+统一评测闭环。同时主动说明局限和负结果，体现工程与实验判断。
+
+面试高频问答（四）：实现细节追问
+23.
+
+候选文本为什么同时包含问题和答案？
+
+因为目标不仅是问题属于医学，还希望答案包含目标语义。缺点是长模板答案可能靠关键词得分，需要质量权重和
+人工抽查抑制。
+24.
+
+风险样本为什么降权而不是删除？
+
+某些风险词出现在正确的禁忌说明或反例中，全部删除会损失安全教育数据。降权允许有价值样本保留，但降低进
+入Top-k的概率。
+25.
+
+筛选器fallback有什么风险？
+
+加载失败时会退化为字符n-gram重叠，脚本仍能运行。若只看退出码会误以为复现成功，所
+以必须核对filter_summary.backend。
+SentenceTransformer
+
+26. SFT
+
+到底训练用户问题还是助手答案？
+
+默认train_on_inputs=False，系统和用户token被IGNORE_INDEX屏蔽，主要训练助手答案。这个细节决定loss的解
+释。
+27. SFT
+
+训练期PPL和独立PPL为什么不同？
+
+训练期eval loss主要在助手标签上，独立eval_ppl对完整对话全部token计loss；数据集也不同，数值不能直接比
+较。
+28. GRPO
+
+是否创建了新的LoRA Adapter？
+
+当peft_path存在时，代码把SFT Adapter以is_trainable=True加载并继续训练，不再创建新Adapter。GRPO输出是更
+新后的Adapter状态。
+29. GRPO
+
+脚本声明更多target_modules是否生效？
+
+加载已有Adapter后不会自动按新列表扩展模块，实际模块由原adapter_config决定。必须查看trainable parameter
+日志，不能只看命令行。
+30. combined_medical_reward
+
+是否用于正式训练？
+
+主入口没有直接调用它，而是传入四个独立reward函数。若未显式reward_weights，0.35/0.30/0.25/0.10公式不控
+制主训练。这是代码审计的重要发现。
+31.
+
+为什么GRPO的answer不是训练标签？
+
+根据策略采样并以reward更新，answer只是参考相似度的参照；它不像SFT那样做teacher forcing。
+
+GRPO
+
+32.
+
+为什么四卡评测按模型并行更快？
+
+单卡能放下，推理没有必要承担DDP通信。四张卡各评一个模型能提高整个实验矩阵的完成速度。
+
+7B
+
+面试高频问答（五）：实验设计与生产化追问
+33.
+
+如何设计一个医生人工评测？
+
+按专科和风险分层抽样，隐藏模型身份，让至少两名医生独立打事实正确、完整、危害严重度、就医分流和表达质
+量；报告一致性并对分歧仲裁。
+34.
+
+如何衡量真正的幻觉？
+
+把回答拆成可验证医学claim，对照权威指南或结构化知识逐条标注支持、矛盾或无证据；同时按潜在危害加权，
+而不是只算文本相似度。
+
+加入后如何训练？
+
+35. RAG
+
+先检索权威文档，SFT训练“基于证据回答并引用”；GRPO增加证据一致性、引用覆盖和无证据拒答reward，同时保
+留安全与重复约束。
+36.
+
+如何防止数据泄漏？
+
+以语义簇而非单条ID切分；测试问题不参与query构建、Top-k选择、reward调权或checkpoint选择；保存样本hash
+和近重复审计结果。
+37. 30k
+
+为什么可能不如10k？
+
+新增20k可能相关性更低、模板更多；也可能10k与30k学习率不同或训练token未对齐。需要随机10k、Top-10k和
+Top-30k消融区分原因。
+38.
+
+四卡A40为何不用ZeRO-3？
+
+单卡48GB已能容纳，ZeRO-3增加通信和工程复杂度，收益有限。只有更长上下文、更大模型或全参训练
+才值得引入。
+7B LoRA
+
+39.
+
+如何监控上线后的安全退化？
+
+建立高风险意图分类、规则与模型双重审查，记录拒答/升级率、剂量命中、急症漏分流、用户追问和医生反馈；
+模型或知识库更新后回放固定安全集。
+
+40.
+
+项目中最值得改的三处代码是什么？
+
+第一，统一run manifest和严格失败机制，禁止Adapter缺失时静默跳过；第二，显式配置reward_weights并记录每
+项reward；第三，建立独立切分和近重复审计，修正训练验证与C-Eval泄漏。
+
+结论边界与需要修正的实验设计
+
+数据筛选验证的是相关性和启发式质量，不验证医学事实。
+2. SFT默认训练与验证目录相同，训练期eval loss有重合风险。
+3. held-out评测只排除ID和精确问题，没有语义近重复隔离。
+4. C-Eval样本只有15道且参与过领域query构建，没有独立区分度。
+5. QA评测使用采样且没有显式固定随机种子，小差异不稳健。
+6. 安全通过阈值为0.85，而无风险匹配的普通回答初始就是0.85，规则较宽松。
+7. 结构命中依赖固定关键词，可能低估自然结构化回答。
+8. 汇总脚本扫描目录内全部JSON，可能混入旧实验结果。
+9. GRPO改进不是单调的，现有证据不能支持“每阶段显著提升”。
+10. 缺少RAG、事实核验器、医生盲评和真实临床场景压力测试。
+这些问题不意味着项目无效，而是决定了它目前是一个研究与工程基线，不是可直接临床部署的系统。
+1.
+
+推荐复现策略：先得到可信闭环，再扩展实验矩阵
+第一轮：一天内验证主链路
+
+只跑Top-10k、SFT-1k冒烟、SFT-10k、GRPO-500和Base/SFT/GRPO评测。目标是证明数据、Adapter、reward和评
+测链路全部可用。
+
+第二轮：修正实验口径
+
+建立独立SFT验证集；用embedding移除训练/评测近重复；固定随机种子；扩大C-Eval valid；为每次运行创建独立
+run_id和manifest。
+
+第三轮：做真正有信息量的消融
+
+比较10k与30k、GRPO-500与1000、是否使用安全reward、不同KL beta和不同相似度权重。至少重复3个种子，并
+报告均值、标准差和失败案例。
+
+第四轮：提升抗幻觉能力
+
+接入权威医学RAG；生成答案必须绑定证据片段；增加药品、剂量、禁忌和急症事实核验；建立医生标注的事实正
+确率与危害严重度指标。
+最终选型应优先满足：事实正确、安全、可追溯；PPL和embedding相似度只能作为辅助信号。
+
+从实验项目走向可用医疗助手，还缺四层系统
+权威知识层
+
+建立有版本、发布日期、适用人群和来源许可的医学指南、药品说明书、临床路径知识库。检索结果必须可追溯，
+过期文档自动降权或下线。
+
+事实与规则层
+
+把药名、剂量、频次、适应证、禁忌、孕妇/儿童/肝肾功能等实体结构化，生成后进行一致性校验。急症红旗症状
+采用高召回规则与分类器，不依赖语言模型自由判断。
+
+生成与拒答层
+
+模型只能在检索证据支持范围内回答；证据不足时明确说明不确定并建议就医。高风险处方和诊断请求触发拒答、
+模板化安全建议或人工升级。
+
+评测与治理层
+
+离线评测覆盖事实正确、证据一致、安全分流、偏差和隐私；线上监控分布漂移、规则命中、投诉与医生反馈。所
+有模型、Adapter、prompt、知识库和规则版本可回滚。
+SFT+GRPO是生成模型层的一部分，不应承担检索、事实核验、急症分流和治理的全部责任。
+
+后续仍需回答的问题
+
+优于30k是新增数据质量下降，还是学习率和训练步数没有重新调优？
+GRPO增益很小，是reward权重问题、样本难度不足，还是参考答案本身存在噪声？
+安全规则通过率提高后，医生盲评的事实错误和危害严重度是否同步下降？
+不同医学专科、急症与非急症之间的效果是否一致？
+引入RAG后，应该继续用同一套GRPO reward，还是增加证据一致性reward？
+四卡A40的实际瓶颈是模型计算、NCCL同步、CPU数据加载还是BGE评分？
+复现完成后，应优先用逐样本错误分析回答这些问题，而不是继续堆训练步数。
+10k
+
+复现交付检查清单
+
+保存代码提交号、Python/CUDA/PyTorch/TRL版本和四卡拓扑。
+[ ] 确认数据筛选backend为sentence_transformers，而非字符重叠fallback。
+[ ] 记录126万候选、过滤数量、Top-k数量和医学类别分布。
+[ ] SFT训练集与验证集物理隔离，评测集与Top-30k无ID和语义近重复。
+[ ] SFT-10k、SFT-30k、GRPO-500和GRPO-1000使用独立输出目录。
+[ ] 每个Adapter根目录存在adapter_config.json，并完成一次加载推理。
+[ ] 三阶段使用完全相同的PPL、QA和C-Eval样本与生成参数。
+[ ] 每个模型都有PPL、QA预测、安全结构和C-Eval四类结果文件。
+[ ] 抽查急诊、药物剂量、妊娠、儿科和禁忌场景，不只阅读平均分。
+[ ] 报告同时呈现正结果、负结果、随机性、样本量和指标边界。
+当以上项目全部满足时，才能说完成了可审计的实验复现；否则只能说训练任务运行成功。
+[]
+
+
