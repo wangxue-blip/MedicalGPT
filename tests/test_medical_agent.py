@@ -4,6 +4,7 @@
 验证的正是"依赖全缺时编排、路由、汇总、安全校验仍然正确"。
 """
 
+import importlib.util
 import json
 import os
 import struct
@@ -379,6 +380,25 @@ def test_runtime_fallback_loop_guard():
     graph.add_conditional_edges("spin", lambda s: "again", {"again": "spin"})
     with pytest.raises(RuntimeError):
         graph.compile().invoke({})
+
+
+@pytest.mark.skipif(importlib.util.find_spec("torchxrayvision") is None, reason="需要 torchxrayvision（真实后端）")
+def test_real_gradcam_backend_produces_valid_boxes(png_path, tmp_path):
+    """真实检测 + Grad-CAM 路径。回归点：hook 不能挂在 model.features 上，
+    xrv 的 forward 对它做 inplace relu，register_full_backward_hook 会直接抛错。"""
+    det = DetectAbnormalityTool(mock=False, device="cpu", min_score=0.0)
+    if not det.available:
+        pytest.skip("检测权重不可用: %s" % det.unavailable_reason)
+    result = det.run(image_path=png_path)
+    assert result.ok and result.backend.startswith("torchxrayvision"), result.error
+    labels = [f["label"] for f in result.payload["findings"]][:2]
+    loc = LocalizeFindingTool(mock=False, detector=det, output_dir=str(tmp_path), device="cpu")
+    out = loc.run(image_path=png_path, labels=labels)
+    assert out.ok, out.error
+    for finding in out.payload["findings"]:
+        Finding.from_dict(finding).validate()
+        assert os.path.exists(finding["mask"]["path"])
+        assert finding["extra"]["localized_by"] == "gradcam"
 
 
 def test_agent_run_is_json_serializable(png_path):

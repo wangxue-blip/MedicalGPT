@@ -98,17 +98,20 @@ class LocalizeFindingTool(BaseTool):
         pathologies = list(model.pathologies)
         captured: Dict[str, Any] = {}
 
+        # 不能挂 model.features：xrv 的 forward 对它的输出做 F.relu(inplace=True)，
+        # 而 register_full_backward_hook 明确禁止模块输出被原地修改。denseblock4 的
+        # 输出进 norm5（BatchNorm，非原地），安全；梯度用张量 hook 抓，不用模块反向 hook。
+        target_layer = getattr(model.features, "denseblock4", None) or model.features
+
+        def _save_gradient(grad):
+            captured["gradient"] = grad
+
         def forward_hook(_module, _inputs, output):
             captured["activation"] = output
+            if output.requires_grad:
+                output.register_hook(_save_gradient)
 
-        def backward_hook(_module, _grad_input, grad_output):
-            captured["gradient"] = grad_output[0]
-
-        target_layer = model.features
-        handles = [
-            target_layer.register_forward_hook(forward_hook),
-            target_layer.register_full_backward_hook(backward_hook),
-        ]
+        handles = [target_layer.register_forward_hook(forward_hook)]
         out_dir = Path(self.output_dir) / "localize"
         out_dir.mkdir(parents=True, exist_ok=True)
         stem = Path(image_path).stem
