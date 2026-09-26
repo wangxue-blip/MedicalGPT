@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 1150" width="1640" height="1150" role="img" aria-label="数据划分总图：文本训练、对齐、评测、知识库、影像五条数据线各自的来源、筛选、切分与规模">
+<style>
+text{font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif;fill:#1B2429;font-size:11px}
+.b{font-weight:700}.lab{fill:#4A5A64}.ttl{font-size:22px;font-weight:700;fill:#163A4F}.sub{font-size:12px;fill:#4A5A64}.lane{font-size:13px;font-weight:700;fill:#163A4F}
+.ok{fill:#E4F1E8;stroke:#3E8E5A;stroke-width:1.4}.sim{fill:#FBEFD9;stroke:#C8871E;stroke-width:1.4}.risk{fill:#F8E3E2;stroke:#B8413F;stroke-width:1.4}.new{fill:#ECE6F6;stroke:#6B4FA3;stroke-width:1.4}.plan{fill:#EEF1F3;stroke:#7A8790;stroke-width:1.4;stroke-dasharray:5 4}.st{fill:#E6F0F6;stroke:#2F7FA6;stroke-width:1.4}
+.bg{fill:#F5F7F8;stroke:#D5DDE2;stroke-width:1}.bg2{fill:#FFFFFF;stroke:#D5DDE2;stroke-width:1}
+.e{fill:none;stroke:#6F7E88;stroke-width:1.6;marker-end:url(#ar)}.p{fill:none;stroke:#7A8790;stroke-width:1.6;stroke-dasharray:6 5;marker-end:url(#arp)}.bus{fill:none;stroke:#6F7E88;stroke-width:1.6}
+</style>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6F7E88"/></marker>
+<marker id="arp" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7A8790"/></marker>
+</defs>
+<rect width="1640" height="1150" fill="#FFFFFF"/>
+<!-- 图 D1 数据划分总图 -->
+<text x="30" y="34" class="ttl">图 D1 · 数据划分总图：五条数据线各自从哪来、怎么筛、怎么切、有多大</text>
+<text x="30" y="54" class="sub">绿色为仓库里已有产物或已跑通的划分；琥珀为脚本就绪等数据；红色为泄漏防线与风险点；紫色为补充设计；虚线为规划中尚未执行的步骤。数字全部来自仓库统计文件。</text>
+
+<!-- 泳道背景 -->
+<rect x="20" y="66" width="1600" height="252" class="bg"/>
+<rect x="20" y="322" width="1600" height="196" class="bg2"/>
+<rect x="20" y="522" width="1600" height="176" class="bg"/>
+<rect x="20" y="702" width="1600" height="196" class="bg2"/>
+<rect x="20" y="902" width="1600" height="196" class="bg"/>
+<text x="34" y="86" class="lane">① 文本训练数据线：从 1,269,281 条到 30,000 / 10,000 / 1,000 条</text>
+<text x="34" y="342" class="lane">② 对齐数据线：GRPO 第一轮 1,000 / 500 条，第二轮候选池 5,000 条</text>
+<text x="34" y="542" class="lane">③ 评测数据线：留出集与考试集，以及三道防泄漏闸门</text>
+<text x="34" y="722" class="lane">④ 知识库语料线：六个来源层级、结构感知切片、检索评测集</text>
+<text x="34" y="922" class="lane">⑤ 影像与智能体数据线：视觉问答集、定位集、标签空间、意图空间</text>
+
+<!-- ① 文本训练 -->
+<rect x="140" y="100" width="200" height="58" class="ok"/>
+<text x="240" y="118" text-anchor="middle"><tspan class="b">原始数据</tspan><tspan x="240" dy="15">shibing624/medical 微调集</tspan><tspan x="240" dy="15">train_zh_0 + valid_zh_0</tspan></text>
+<path class="e" d="M340,129 H370"/>
+<rect x="370" y="100" width="230" height="58" class="ok"/>
+<text x="485" y="118" text-anchor="middle"><tspan class="b">统一问答候选集 1,269,281 条</tspan><tspan x="485" dy="15">问 ≥5 字 · 答 20～2,048 字</tspan><tspan x="485" dy="15">按问题去重后编号</tspan></text>
+<path class="e" d="M600,129 H630"/>
+<rect x="630" y="100" width="210" height="58" class="ok"/>
+<text x="735" y="118" text-anchor="middle"><tspan class="b">剔除广告 / 联系方式</tspan><tspan x="735" dy="15">33,207 条整条删除</tspan><tspan x="735" dy="15">进入打分 1,236,074 条</tspan></text>
+<path class="e" d="M840,129 H870"/>
+<rect x="870" y="100" width="250" height="58" class="ok"/>
+<text x="995" y="118" text-anchor="middle"><tspan class="b">锚点相似度打分（bge-m3 向量）</tspan><tspan x="995" dy="15">0.7×最大相似 + 0.3×前 5 均值</tspan><tspan x="995" dy="15">×质量权重 max(0.6, 1−0.12×风险命中数)</tspan></text>
+<path class="e" d="M1120,129 H1150"/>
+<rect x="1150" y="100" width="200" height="58" class="ok"/>
+<text x="1250" y="118" text-anchor="middle"><tspan class="b">流式最小堆 Top-K</tspan><tspan x="1250" dy="15">全程只留分数最高的 30,000 条</tspan><tspan x="1250" dy="15">不把 120 万条读进内存</tspan></text>
+<path class="e" d="M1350,129 H1380"/>
+<!-- 嵌套 Top-K -->
+<rect x="1380" y="82" width="230" height="112" class="ok"/>
+<text x="1495" y="98" text-anchor="middle" class="b">Top 30k：主线训练集</text>
+<rect x="1400" y="106" width="190" height="70" class="ok"/>
+<text x="1495" y="121" text-anchor="middle" class="b">Top 10k：主线 + 对齐数据来源</text>
+<rect x="1420" y="130" width="150" height="38" class="ok"/>
+<text x="1495" y="146" text-anchor="middle" class="b">Top 1k：冒烟训练</text>
+<text x="1495" y="161" text-anchor="middle" class="lab">三档严格嵌套</text>
+<!-- 锚点 -->
+<rect x="870" y="196" width="250" height="58" class="ok"/>
+<text x="995" y="214" text-anchor="middle"><tspan class="b">锚点 111 条</tspan><tspan x="995" dy="15">96 条手写主题（12 类 × 8 条）</tspan><tspan x="995" dy="15">+ 15 条 C-Eval 医学 dev 题（上限 80）</tspan></text>
+<path class="e" d="M995,196 V158"/>
+<!-- 备用路径 -->
+<rect x="630" y="232" width="210" height="44" class="sim"/>
+<text x="735" y="250" text-anchor="middle"><tspan class="b">无 GPU 备用路径</tspan><tspan x="735" dy="15">字符 n-gram 哈希打分 → 预筛 30 万条</tspan></text>
+<path class="e" d="M735,158 V232"/><text x="741" y="200" class="lab">备用</text>
+<!-- 转换与训练 -->
+<rect x="1380" y="232" width="230" height="58" class="ok"/>
+<text x="1495" y="250" text-anchor="middle"><tspan class="b">ShareGPT 转换</tspan><tspan x="1495" dy="15">每条问题前加安全前缀</tspan><tspan x="1495" dy="15">30,000 / 10,000 / 1,000 条，零丢弃</tspan></text>
+<path class="e" d="M1495,194 V232"/>
+<rect x="1130" y="232" width="220" height="58" class="risk"/>
+<text x="1240" y="250" text-anchor="middle"><tspan class="b">LoRA 微调（10k · 30k 主线）</tspan><tspan x="1240" dy="15">训练内验证 500 条来自训练文件本身</tspan><tspan x="1240" dy="15">不是独立留出，只能看收敛不能看泛化</tspan></text>
+<path class="e" d="M1380,261 H1350"/>
+
+<!-- ② 对齐数据 -->
+<rect x="140" y="356" width="230" height="58" class="ok"/>
+<text x="255" y="374" text-anchor="middle"><tspan class="b">来源：Top 10k</tspan><tspan x="255" dy="15">复杂度分 = 筛选分 + 问答长度分</tspan><tspan x="255" dy="15">+ 症状/鉴别/风险/用药/就医关键词</tspan></text>
+<path class="e" d="M370,385 H400"/>
+<rect x="400" y="356" width="230" height="58" class="ok"/>
+<text x="515" y="374" text-anchor="middle"><tspan class="b">五类优先配额</tspan><tspan x="515" dy="15">急诊 · 内科 · 药物禁忌 · 儿科 · 妇产</tspan><tspan x="515" dy="15">每类先保 80（千条版）/ 41（五百版）</tspan></text>
+<path class="e" d="M630,385 H660"/>
+<rect x="660" y="356" width="200" height="58" class="ok"/>
+<text x="760" y="374" text-anchor="middle"><tspan class="b">GRPO 1,000 条（实训 900）</tspan><tspan x="760" dy="15">妇产 372 · 慢病 150 · 儿科 93</tspan><tspan x="760" dy="15">内科 / 急诊 / 药物各 80</tspan></text>
+<path class="e" d="M515,414 V458 H660"/>
+<rect x="660" y="436" width="200" height="44" class="ok"/>
+<text x="760" y="454" text-anchor="middle"><tspan class="b">GRPO 500 条（实训 450）</tspan><tspan x="760" dy="15">妇产 178 · 慢病 66 · 儿科 63</tspan></text>
+<rect x="890" y="356" width="270" height="72" class="ok"/>
+<text x="1025" y="374" text-anchor="middle"><tspan class="b">第二轮候选池 5,000 条（来源 Top 30k）</tspan><tspan x="1025" dy="15">3,000 复杂问诊（按复杂度排序取前）</tspan><tspan x="1025" dy="15">1,200 考试改写（C-Eval dev，不抄选项）</tspan><tspan x="1025" dy="15">800 安全风险（15 个场景 × 模板组合）</tspan></text>
+<path class="p" d="M1160,392 H1180"/>
+<rect x="1180" y="356" width="210" height="72" class="plan"/>
+<text x="1285" y="374" text-anchor="middle"><tspan class="b">三模型作答 → 难样本打分</tspan><tspan x="1285" dy="15">0.45(1−微调分)+0.20(1−均分)</tspan><tspan x="1285" dy="15">+0.15×分歧 +0.15×风险</tspan><tspan x="1285" dy="15">+0.05×来源加成（实际≤0.0075）</tspan></text>
+<path class="p" d="M1390,392 H1410"/>
+<rect x="1410" y="356" width="200" height="72" class="plan"/>
+<text x="1510" y="374" text-anchor="middle"><tspan class="b">最终 1,500 条（脚本未写）</tspan><tspan x="1510" dy="15">600 问诊 / 500 考试 / 400 安全</tspan><tspan x="1510" dy="15">候选池与第一轮重叠 673 / 1000</tspan><tspan x="1510" dy="15">入训前必须按编号去重</tspan></text>
+<text x="890" y="452" class="lab">每条对齐样本携带：问题 · 参考答案 · 类别 · 该类必需的 4 个段落 · 4 条安全规则 · 来源编号与筛选分</text>
+<text x="890" y="470" class="lab">训练实际用 900 / 450 条：训练脚本切 10% 做训练内验证；每题采样 2 个回答（V100），第二轮计划 4 个</text>
+
+<!-- ③ 评测数据 -->
+<rect x="140" y="556" width="250" height="58" class="ok"/>
+<text x="265" y="574" text-anchor="middle"><tspan class="b">候选集 − Top 30k 编号</tspan><tspan x="265" dy="15">排除 30,000 条训练样本（含 10k / 1k）</tspan><tspan x="265" dy="15">答案 80～1,800 字 · 按问题去重 · 顺序取</tspan></text>
+<path class="e" d="M390,585 H420"/>
+<rect x="420" y="556" width="200" height="44" class="ok"/>
+<text x="520" y="574" text-anchor="middle"><tspan class="b">问答留出集 500 条</tspan><tspan x="520" dy="15">参考相似度 · 结构 · 安全 · 长度</tspan></text>
+<path class="e" d="M405,585 V648 H420"/>
+<rect x="420" y="626" width="200" height="44" class="ok"/>
+<text x="520" y="644" text-anchor="middle"><tspan class="b">长文本留出集 1,000 条</tspan><tspan x="520" dy="15">困惑度；前 500 条与问答集相同</tspan></text>
+<rect x="660" y="556" width="230" height="58" class="ok"/>
+<text x="775" y="574" text-anchor="middle"><tspan class="b">C-Eval 医学 dev / valid 表格</tspan><tspan x="775" dy="15">本机仅 15 题，所有模型 100%</tspan><tspan x="775" dy="15">只能证明流程通，不能当基准</tspan></text>
+<rect x="920" y="556" width="230" height="58" class="risk"/>
+<text x="1035" y="574" text-anchor="middle"><tspan class="b">C-Eval test：三处硬拒绝</tspan><tspan x="1035" dy="15">锚点构建 · 候选池构建 · 评测脚本</tspan><tspan x="1035" dy="15">路径或文件名含 test 直接抛异常</tspan></text>
+<path class="p" d="M890,585 H920"/>
+<rect x="1180" y="556" width="230" height="58" class="plan"/>
+<text x="1295" y="574" text-anchor="middle"><tspan class="b">第二轮正式评测改用 ceval_val</tspan><tspan x="1295" dy="15">dev 已被锚点与考试改写用过</tspan><tspan x="1295" dy="15">再拿它评测就是开发集污染</tspan></text>
+<path class="p" d="M1150,585 H1180"/>
+<rect x="1430" y="556" width="180" height="58" class="risk"/>
+<text x="1520" y="574" text-anchor="middle"><tspan class="b">口径提醒</tspan><tspan x="1520" dy="15">评测脚本默认只评 200 条问答</tspan><tspan x="1520" dy="15">报告口径 500，需对齐</tspan></text>
+<text x="660" y="652" class="lab">留出集不是随机抽样，而是按候选文件顺序取前 N 条合格样本；改进方向是固定种子随机抽样并按类别分层。</text>
+
+<!-- ④ 知识库语料 -->
+<rect x="140" y="736" width="200" height="72" class="ok"/>
+<text x="240" y="754" text-anchor="middle"><tspan class="b">一级来源（权威度）</tspan><tspan x="240" dy="15">临床指南 · 专家共识 1.00</tspan><tspan x="240" dy="15">药品说明书 0.95</tspan><tspan x="240" dy="15">PDF / DOCX / MD / TXT</tspan></text>
+<rect x="360" y="736" width="230" height="72" class="ok"/>
+<text x="475" y="754" text-anchor="middle"><tspan class="b">二级来源</tspan><tspan x="475" dy="15">教科书 0.75</tspan><tspan x="475" dy="15">华佗百科问答 0.60（最多 20,000 条）</tspan><tspan x="475" dy="15">知识图谱问答 0.55（最多 20,000 条）</tspan></text>
+<rect x="610" y="736" width="200" height="58" class="risk"/>
+<text x="710" y="754" text-anchor="middle"><tspan class="b">三级：在线问诊 0.30</tspan><tspan x="710" dy="15">默认不入库，需显式开关</tspan><tspan x="710" dy="15">未审核内容不配引用编号</tspan></text>
+<path class="e" d="M340,772 H840"/>
+<path class="e" d="M590,772 H840"/>
+<path class="p" d="M810,765 H840"/>
+<rect x="840" y="736" width="250" height="72" class="ok"/>
+<text x="965" y="754" text-anchor="middle"><tspan class="b">结构感知切片</tspan><tspan x="965" dy="15">子块320 · 重叠64 · 父块1,200 · 最小40字</tspan><tspan x="965" dy="15">表格整块不切 · 问答一条一块</tspan><tspan x="965" dy="15">推荐等级 I/IIa/IIb/III、A–D 抽成元数据</tspan></text>
+<path class="e" d="M1090,772 H1120"/>
+<rect x="1120" y="736" width="210" height="58" class="ok"/>
+<text x="1225" y="754" text-anchor="middle"><tspan class="b">切片库 chunks.jsonl</tspan><tspan x="1225" dy="15">章节路径 · 页码 · 版本 · 层级随片落盘</tspan><tspan x="1225" dy="15">术语表两百余组同义词</tspan></text>
+<path class="e" d="M1330,765 H1360"/>
+<rect x="1360" y="736" width="250" height="72" class="sim"/>
+<text x="1485" y="754" text-anchor="middle"><tspan class="b">检索评测集（格式已定，待构建）</tspan><tspan x="1485" dy="15">问句 + 金标准切片编号</tspan><tspan x="1485" dy="15">或 参考答案弱标注：阈值 0.35，每题取 3</tspan><tspan x="1485" dy="15">指标：召回@k · MRR · nDCG · 引用精确/召回</tspan></text>
+<text x="140" y="838" class="lab">本机只用 4～5 条内置夹具跑通了整条链路；正式语料需要在服务器上放入指南 PDF 与两份华佗问答后重建。权威度只在语义分接近时当裁判，不是真值裁判。</text>
+
+<!-- ⑤ 影像与智能体 -->
+<rect x="140" y="936" width="250" height="72" class="sim"/>
+<text x="265" y="954" text-anchor="middle"><tspan class="b">VQA-RAD（CC BY 4.0）</tspan><tspan x="265" dy="15">315 张影像 · 3,515 条医生问答</tspan><tspan x="265" dy="15">优先官方划分；否则按图哈希 8:2</tspan><tspan x="265" dy="15">两边图像零重叠 · 分闭合题 / 开放题</tspan></text>
+<rect x="420" y="936" width="250" height="72" class="sim"/>
+<text x="545" y="954" text-anchor="middle"><tspan class="b">CheXlocalize（Stanford，需申请）</tspan><tspan x="545" dy="15">十类发现的放射科医生分割标注</tspan><tspan x="545" dy="15">按患者 / 图像划分 · 框由掩码外接得到</tspan><tspan x="545" dy="15">跳过"支持设备"这类非病理标签</tspan></text>
+<rect x="700" y="936" width="230" height="72" class="ok"/>
+<text x="815" y="954" text-anchor="middle"><tspan class="b">标签空间：18 类胸片病理</tspan><tspan x="815" dy="15">来自胸片预训练网络，中英文别名</tspan><tspan x="815" dy="15">检出阈值 0.30 · 取前 5</tspan><tspan x="815" dy="15">框面积 ≥ 0.002 · 掩码占比 ≤ 0.6</tspan></text>
+<rect x="960" y="936" width="230" height="72" class="ok"/>
+<text x="1075" y="954" text-anchor="middle"><tspan class="b">意图空间：5 类</tspan><tspan x="1075" dy="15">纯文本 · 影像分析 · 位置查询</tspan><tspan x="1075" dy="15">综合报告 · 无法处理</tspan><tspan x="1075" dy="15">六条规则先命中先生效，决策落日志</tspan></text>
+<rect x="1220" y="936" width="200" height="72" class="plan"/>
+<text x="1320" y="954" text-anchor="middle"><tspan class="b">规划中的数据集</tspan><tspan x="1320" dy="15">PMC-VQA：筛后做视觉微调样本</tspan><tspan x="1320" dy="15">MIMIC-CXR：胸片 + 报告</tspan><tspan x="1320" dy="15">VinDr-CXR：训练带框病灶检测</tspan></text>
+<rect x="1440" y="936" width="170" height="72" class="ok"/>
+<text x="1525" y="954" text-anchor="middle"><tspan class="b">评测指标</tspan><tspan x="1525" dy="15">闭合题准确率 · 开放题 F1</tspan><tspan x="1525" dy="15">交并比 · Dice · 无依据结论率</tspan><tspan x="1525" dy="15">工具成功率 · 延迟 p95</tspan></text>
+<text x="140" y="1040" class="lab">影像数据本机没有下载（用户决定不下），两份数据集的转换脚本与划分规则已写好并有单测；仿真评测里 mock 比例大于 0 时输出必带警告。</text>
+
+<!-- 图例 -->
+<g transform="translate(30,1112)">
+<rect x="0" y="0" width="14" height="14" class="ok"/><text x="20" y="12">已有产物 / 已跑通</text>
+<rect x="130" y="0" width="14" height="14" class="sim"/><text x="150" y="12">脚本就绪，等数据或模型</text>
+<rect x="300" y="0" width="14" height="14" class="risk"/><text x="320" y="12">防泄漏闸门 / 风险点</text>
+<rect x="450" y="0" width="14" height="14" class="plan"/><text x="470" y="12">规划中，尚未执行</text>
+<path class="p" d="M600,7 H640"/><text x="646" y="12">尚未打通的连接</text>
+</g>
+</svg>

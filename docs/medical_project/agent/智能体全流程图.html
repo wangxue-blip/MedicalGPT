@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedVision 智能体全流程图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+body{background:#FFFFFF;color:#1B2429;font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif;margin:0;padding:24px 28px;}
+h1{font-weight:700;font-size:28px;color:#163A4F;margin:0 0 6px;border-bottom:2px solid #163A4F;padding-bottom:8px;}
+h2{font-weight:600;font-size:19px;color:#163A4F;margin:26px 0 8px;}
+p{color:#4A5A64;max-width:90ch;margin:6px 0 12px;font-size:14px;line-height:1.8;}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:#4A5A64;margin:8px 0 14px;}
+.legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:6px;border:1px solid #B9C5CC;}
+.legend .ok::before{background:#E4F1E8;border-color:#3E8E5A;} .legend .sim::before{background:#FBEFD9;border-color:#C8871E;} .legend .risk::before{background:#F8E3E2;border-color:#B8413F;} .legend .plan::before{background:#EEF1F3;border-color:#7A8790;border-style:dashed;} .legend .new::before{background:#ECE6F6;border-color:#6B4FA3;} .legend .dec::before{background:#fff;border-color:#2F7FA6;}
+.scroll{overflow-x:auto;border:1px solid #D5DDE2;padding:12px;}
+pre.mermaid{margin:0;text-align:center;}
+ol.steps{max-width:90ch;padding-left:22px;margin:6px 0;font-size:14px;line-height:1.8;} ol.steps li{margin:6px 0;} ol.steps b{color:#163A4F;}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0;} th{background:#E6F0F6;padding:7px 10px;border:1px solid #D5DDE2;text-align:left;} td{padding:6px 10px;border:1px solid #D5DDE2;vertical-align:top;}
+</style></head><body>
+<h1>MedVision 智能体全流程图</h1>
+<p>一次请求从进入到输出的完整路径：七个编排步骤、五个工具的内部流程、每个工具的三态判断、两处循环、三个分叉、两条反馈回路。补充设计的接入层与医生复核用紫色区分。代码位置：<code>medical_agent/</code>（graph.py 编排，router.py 路由，tools/ 五个工具，aggregator.py 汇总，reporter.py 报告，safety.py 安全校验）。</p>
+<div class="legend"><span class="ok">真实后端，本机已验证</span><span class="sim">代码就绪，等模型</span><span class="risk">安全判定与拒答</span><span class="new">补充设计</span><span class="plan">回路未实现（虚线）</span><span class="dec">判断</span></div>
+<div class="scroll">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E6F0F6','primaryTextColor':'#1B2429','primaryBorderColor':'#2F7FA6','lineColor':'#6F7E88','edgeLabelBackground':'#FFFFFF','fontFamily':'Microsoft YaHei, Noto Sans SC, sans-serif','fontSize':'13px'}, 'flowchart': {'nodeSpacing': 28, 'rankSpacing': 42}}}%%
+flowchart TD
+  U(["用户输入<br/>胸片 · 问题 · 症状描述 · 化验数据"])
+  U --> GW["接入层（补充设计）<br/>鉴权 · 限流 · 影像去标识化"]
+  GW --> V["① 输入校验<br/>图存在？问题非空？化验是字典？<br/>有问题只记录，不终止"]
+  V --> R["② 意图路由（规则）<br/>写入意图 · 理由 · 工具计划<br/>每次决策追加到路由日志"]
+  R --> Q1{"意图？"}
+  Q1 -- "无法处理：无输入 / 图不存在 / 格式不对" --> FO
+  Q1 -- "纯文本问答：只跑检索" --> RUN
+  Q1 -- "影像分析：检测 → 视觉问答 → 检索" --> RUN
+  Q1 -- "位置查询：检测 → 定位 → 标注图" --> RUN
+  Q1 -- "综合报告：五个工具全跑" --> RUN
+  RUN["③ 执行工具（按计划逐个循环）<br/>每个工具三态判断：显式仿真？真实后端可用？运行抛异常？<br/>不可用返回失败且绝不给假数据 · 失败记错误，后面的工具照跑"]
+  RUN --> DET
+
+  subgraph TDET["工具一 · 异常检测"]
+    direction TB
+    DET["预处理<br/>灰度 → 归一化到 ±1024 → 居中裁方 → 224 像素"] --> DN["胸片预训练网络<br/>DenseNet121（多个公开胸片数据集训练）"] --> PR["18 类病理概率"] --> TH{"分数 ≥ 0.30？"}
+    TH -- "是，取前 5" --> F1["发现列表：标签 + 分数<br/>标记'有依据'，来源 = 检测器"]
+    TH -- "全都低于阈值" --> F0["无发现"]
+  end
+  F1 --> LOC
+  F0 -. "没有标签：跳过定位，记错误" .-> AGG
+
+  subgraph TLOC["工具二 · 可解释定位（复用检测网络，零额外模型）"]
+    direction TB
+    LOC{"对每个检出标签"} --> FW["前向一次，对该类分数反传"] --> CAM["梯度类激活图<br/>通道权重 = 梯度均值，加权求和取正部分"] --> UP["归一化到 0 到 1，上采样到原图尺寸"] --> BIN["像素 ≥ 0.5 → 掩码 PNG，记占比"]
+    BIN --> CC["最大连通域的外接框，坐标归一化"] --> AR{"框面积 ≥ 0.002？"}
+    AR -- "是" --> F2["发现补上框 + 掩码<br/>占比超过 0.6 标'退化'但仍返回"]
+    AR -- "否" --> SK["跳过该标签，记入'跳过原因'"]
+    F2 --> LOC
+    SK --> LOC
+  end
+  LOC -- "全部标签处理完，热力图 PNG 一并返回" --> VQA
+
+  subgraph TVQA["工具三 · 视觉问答"]
+    direction TB
+    VQA["构造提示词<br/>只输出固定字段 JSON · 候选病理限 18 类<br/>不确定就给低置信度 · 不编造图上没有的"] --> VL["视觉语言模型 Qwen2.5-VL<br/>预训练权重，第一阶段不微调"] --> PJ{"JSON 解析成功？"}
+    PJ -- "是" --> VA["视觉问答结果<br/>回答 · 置信度 · 发现 · 位置 · 解释<br/>发现不算'有依据'，只是模型的看法"]
+    PJ -- "否" --> VB["保留原文，标记解析失败<br/>计入结构化输出失败率"]
+  end
+  VA --> RET
+  VB --> RET
+
+  subgraph TRET["工具四 · 证据检索（调用知识库子系统）"]
+    direction TB
+    RET["检索词 = 用户问题 + 检出标签的中文名"] --> EXP["术语扩展，最多 8 个变体<br/>心梗 → 心肌梗死 / 急性心梗 / AMI"] --> THREE["三路各召回 50<br/>语义向量 · 词面 BM25 · 术语倒排"] --> RRF["倒数排名融合<br/>只看名次不看分数"] --> RK{"精排模型可用？"}
+    RK -- "是" --> CE["交叉编码器精排前 50<br/>问题与片段拼一起做全注意力"] --> AUTH
+    RK -- "否" --> AUTH["权威度 + 时效加权<br/>同分时指南压过百科压过问诊"]
+    AUTH --> RF{"绝对相关度 ≥ 0.10？"}
+    RF -- "是" --> EV["证据列表<br/>出处标签 · 片段 · 来源层级 · 分数"]
+    RF -- "否" --> NOEV["无证据，标记拒答<br/>报告里写'未检索到可靠依据'"]
+  end
+  EV --> VIS
+  NOEV --> VIS
+
+  subgraph TVIS["工具五 · 生成标注图"]
+    direction TB
+    VIS["只画发现里有的东西<br/>框 + 中文标签与分数 + 半透明掩码"] --> PNG["标注图 PNG<br/>没有发现也输出副本并写'未检出'"]
+  end
+  PNG --> AGG
+
+  AGG["④ 汇总成结构化报告<br/>定位结果只覆盖框和掩码，不改检测分数与来源<br/>每个失败的工具、每个仿真结果都写进注意事项<br/>摘要用规则拼，不用数字写计数"]
+  AGG --> REP["⑤ 报告生成（只读结构化报告）<br/>医疗 7B 微调对齐模型，或确定性模板<br/>位置按患者左右描述：图像左 = 患者右<br/>每条结论标引用编号，不给剂量，不做绝对诊断"]
+  REP --> SAF["⑥ 安全校验<br/>数字溯源：每个数字在检出分数 / 框 / 证据 / 化验里能找到<br/>病灶溯源：每个病理名在有依据的发现 / 证据里能找到<br/>绝对化诊断与剂量表达标记，剂量按（数值，单位）判豁免"]
+  SAF --> Q2{"有找不到依据的表述？"}
+  Q2 -- "有" --> APP["末尾追加声明<br/>'以下表述未能在工具输出中找到依据'<br/>原文保留，不静默删除"]
+  Q2 -- "没有" --> FO
+  APP -. "重写回路（未实现）<br/>把无依据列表回填提示词让报告模型重写，最多 2 次" .-> REP
+  APP --> FO
+  FO["⑦ 整理输出<br/>来源清单，编号与正文一一对应 · 标注图路径<br/>无法处理时给中文原因"]
+  OUT(["最终输出<br/>结构化结果 · 标注图 · 自然语言 + 引用 · 来源清单<br/>轨迹 · 每个工具的后端与耗时 · 降级列表 · 配置快照"])
+  FO --> Q3{"安全标记为空？（补充设计）"}
+  Q3 -- "是" --> OUT
+  Q3 -- "否" --> HR["医生复核队列<br/>图在中断节点暂停，放射科医生确认后放行"]
+  HR --> OUT
+  OUT -. "路由日志 → 攒路由评测集 → 语言模型路由" .-> R
+  OUT -. "坏例子 → 难样本挖掘 → 第二轮对齐 → 替换适配器" .-> REP
+
+  classDef ok fill:#E4F1E8,stroke:#3E8E5A,color:#1B2429;
+  classDef sim fill:#FBEFD9,stroke:#C8871E,color:#1B2429;
+  classDef risk fill:#F8E3E2,stroke:#B8413F,color:#1B2429;
+  classDef new fill:#ECE6F6,stroke:#6B4FA3,color:#1B2429;
+  classDef dec fill:#FFFFFF,stroke:#2F7FA6,color:#1B2429;
+  classDef step fill:#E6F0F6,stroke:#2F7FA6,color:#1B2429;
+  class U,OUT,DET,DN,PR,F1,F0,FW,CAM,UP,BIN,CC,F2,SK,RET,EXP,THREE,RRF,AUTH,EV,VIS,PNG ok;
+  class VQA,VL,VA,VB,CE,REP sim;
+  class SAF,APP,NOEV risk;
+  class GW,HR new;
+  class Q1,TH,LOC,AR,PJ,RK,RF,Q2,Q3 dec;
+  class V,R,RUN,AGG,FO step;
+  style TDET fill:#F5F7F8,stroke:#B9C5CC,color:#163A4F
+  style TLOC fill:#F5F7F8,stroke:#B9C5CC,color:#163A4F
+  style TVQA fill:#F5F7F8,stroke:#B9C5CC,color:#163A4F
+  style TRET fill:#F5F7F8,stroke:#B9C5CC,color:#163A4F
+  style TVIS fill:#F5F7F8,stroke:#B9C5CC,color:#163A4F
+</pre>
+</div>
+<p><b>读法。</b>圆角是起止，菱形是判断，五个灰底分组是工具内部。意图路由后的四条计划边决定跑哪些工具；工具二里"对每个检出标签"是循环；两条从"最终输出"折回的虚线是跨请求的反馈回路，尚未实现。</p>
+
+<h2>七个编排步骤各做什么</h2>
+<ol class="steps">
+  <li><b>输入校验</b>：只检查、只记录。图不存在、问题为空这类问题写进错误列表，交给路由去判"无法处理"，节点本身不终止。</li>
+  <li><b>意图路由</b>：六条规则自上而下先命中先生效；意图到工具计划的映射是一张数据表，不是散落的条件语句；每次决策落日志，日志就是将来评估语言模型路由的评测集。</li>
+  <li><b>执行工具</b>：按计划逐个调用。每个工具先判"显式要求仿真？"再判"真实后端能加载？"再判"运行是否抛异常"。不可用时返回失败且数据为空，绝不偷偷换成仿真数据。任一工具失败只记错误，后面的照跑。参数依赖由这一步传递：定位需要检测的标签，检索词拼上检出标签的中文名，视觉问答把证据文本当参考，标注图拿到带框的发现列表。</li>
+  <li><b>汇总</b>：把五个工具的输出合成一份结构化报告。定位只覆盖框和掩码，分数与来源保持检测器的，这样后面的溯源能分清"分数来自检测、位置来自热力图"。失败与仿真全部写进注意事项，报告生成器只能追加不能删。</li>
+  <li><b>报告生成</b>：对结构化报告是只读的，写不了发现和证据。这是"语言模型不能编坐标、数值、来源"在架构上的保证。有 7B 医疗模型就用它，没有就走确定性模板；模板输出必须能通过安全校验。</li>
+  <li><b>安全校验</b>：答案里每个数字回溯到检出分数、框坐标、证据文本或化验；每个病理名回溯到有依据的发现或证据；"肯定是""确诊为"直接标记；剂量表达按（数值，单位）是否落在被引原文里判豁免还是违规。</li>
+  <li><b>整理输出</b>：拼来源清单（编号与正文一一对应）和标注图路径。补充设计里在这之后加一个分叉：安全标记非空的进医生复核队列，图在中断节点暂停，确认后放行。</li>
+</ol>
+
+<h2>四种意图对应的工具计划</h2>
+<table>
+<tr><th>意图</th><th>触发</th><th>工具顺序</th><th>本机仿真实测</th></tr>
+<tr><td>纯文本问答</td><td>没有图</td><td>检索</td><td>跑通，检索到证据并带引用</td></tr>
+<tr><td>影像分析</td><td>有图，默认</td><td>检测 → 视觉问答 → 检索</td><td>跑通</td></tr>
+<tr><td>位置查询</td><td>有图 + 在哪 / 位置 / 定位 / 标出</td><td>检测 → 定位 → 标注图</td><td>跑通，框与掩码落盘</td></tr>
+<tr><td>综合报告</td><td>有图 + 报告 / 综合 / 全面 / 出一份</td><td>检测 → 定位 → 视觉问答 → 检索 → 标注图</td><td>跑通，3.9 秒，安全标记为空</td></tr>
+<tr><td>无法处理</td><td>无输入 / 图不存在 / 格式不支持</td><td>无，短路到整理输出</td><td>跑通，给出中文原因</td></tr>
+</table>
+<script>
+  mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { htmlLabels: true, useMaxWidth: false } });
+</script>
+</body></html>
