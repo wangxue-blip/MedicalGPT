@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 1040" width="1640" height="1040" role="img" aria-label="项目全流程总图：文本模型线、知识库线、影像线三条能力线汇入推理编排，上线后经医生复核与坏例库回流到数据与训练">
+<style>
+text{font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif;fill:#1B2429;font-size:11px}
+.b{font-weight:700}.lab{fill:#4A5A64}.ttl{font-size:22px;font-weight:700;fill:#163A4F}.sub{font-size:12px;fill:#4A5A64}.lane{font-size:13px;font-weight:700;fill:#163A4F}
+.ok{fill:#E4F1E8;stroke:#3E8E5A;stroke-width:1.4}.sim{fill:#FBEFD9;stroke:#C8871E;stroke-width:1.4}.risk{fill:#F8E3E2;stroke:#B8413F;stroke-width:1.4}.new{fill:#ECE6F6;stroke:#6B4FA3;stroke-width:1.4}.plan{fill:#EEF1F3;stroke:#7A8790;stroke-width:1.4;stroke-dasharray:5 4}.st{fill:#E6F0F6;stroke:#2F7FA6;stroke-width:1.4}
+.bg{fill:#F5F7F8;stroke:#D5DDE2;stroke-width:1}.bg2{fill:#FFFFFF;stroke:#D5DDE2;stroke-width:1}
+.e{fill:none;stroke:#6F7E88;stroke-width:1.6;marker-end:url(#ar)}.p{fill:none;stroke:#7A8790;stroke-width:1.6;stroke-dasharray:6 5;marker-end:url(#arp)}.f{fill:none;stroke:#3E8E5A;stroke-width:1.8;marker-end:url(#arg)}
+</style>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6F7E88"/></marker>
+<marker id="arp" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7A8790"/></marker>
+<marker id="arg" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3E8E5A"/></marker>
+</defs>
+<rect width="1640" height="1040" fill="#FFFFFF"/>
+<!-- 图 D2 全流程总图 -->
+<text x="30" y="34" class="ttl">图 D2 · 项目全流程总图：三条能力线汇入一个推理编排，上线后再把坏例回流到数据与训练</text>
+<text x="30" y="54" class="sub">从左到右是时间顺序，从上到下是三条并行的能力线；第四行是每次请求走的推理编排，第五行是上线与反馈。粗绿线是三条能力线交给推理编排的产物。</text>
+
+<!-- 反馈总回路 -->
+<path class="p" d="M1330,883 H1600 V68 H125 V110"/>
+<text x="1100" y="64" class="lab">反馈回路（补充设计）：坏例库按失败类型回流到数据、训练、语料与视觉微调</text>
+
+<!-- 行背景 -->
+<rect x="20" y="76" width="1600" height="200" class="bg"/>
+<rect x="20" y="282" width="1600" height="180" class="bg2"/>
+<rect x="20" y="468" width="1600" height="180" class="bg"/>
+<rect x="20" y="654" width="1600" height="160" class="bg2"/>
+<rect x="20" y="820" width="1600" height="160" class="bg"/>
+<text x="34" y="96" class="lane">① 文本模型线：数据 → 监督微调 → 对齐 → 评测 → 坏例 → 第二轮</text>
+<text x="34" y="302" class="lane">② 知识库线：分层语料 → 切片 → 三路索引 → 在线检索 → 引用核验</text>
+<text x="34" y="488" class="lane">③ 影像线：预训练检测 → 可解释定位 → 视觉问答 → 基线评测 → 再决定训不训</text>
+<text x="34" y="674" class="lane">④ 推理编排（每次请求）：七个节点，五个工具，三态判断，最后一道安全闸</text>
+<text x="34" y="840" class="lane">⑤ 上线与反馈（补充设计）：服务化、三级降级、监控、灰度、坏例回流</text>
+
+<!-- ① 文本模型线 -->
+<rect x="40" y="110" width="170" height="58" class="ok"/>
+<text x="125" y="128" text-anchor="middle"><tspan class="b">数据阶段</tspan><tspan x="125" dy="15">126 万条 → 3 万条</tspan><tspan x="125" dy="15">锚点打分 · 流式 Top-K</tspan></text>
+<path class="e" d="M210,139 H240"/>
+<rect x="240" y="110" width="170" height="58" class="ok"/>
+<text x="325" y="128" text-anchor="middle"><tspan class="b">监督微调</tspan><tspan x="325" dy="15">低秩适配 r8 · α16 · q,v 投影</tspan><tspan x="325" dy="15">10k / 30k 主线，1 轮</tspan></text>
+<path class="e" d="M410,139 H440"/>
+<rect x="440" y="110" width="190" height="58" class="ok"/>
+<text x="535" y="128" text-anchor="middle"><tspan class="b">组相对策略优化</tspan><tspan x="535" dy="15">500 / 1000 条 · 四条规则奖励</tspan><tspan x="535" dy="15">从微调适配器起步，G=2</tspan></text>
+<path class="e" d="M630,139 H660"/>
+<rect x="660" y="110" width="170" height="58" class="ok"/>
+<text x="745" y="128" text-anchor="middle"><tspan class="b">评测阶段</tspan><tspan x="745" dy="15">留出 500 / 1,000 · 考试 dev</tspan><tspan x="745" dy="15">困惑度 · 相似度 · 安全 · 结构</tspan></text>
+<path class="e" d="M830,139 H860"/>
+<rect x="860" y="110" width="170" height="58" class="risk"/>
+<text x="945" y="128" text-anchor="middle"><tspan class="b">坏例分析</tspan><tspan x="945" dy="15">结构命中 32.5% → 0%</tspan><tspan x="945" dy="15">剂量复读 · 短答 · 千条不如五百</tspan></text>
+<path class="e" d="M1030,139 H1060"/>
+<rect x="1060" y="110" width="190" height="58" class="plan"/>
+<text x="1155" y="128" text-anchor="middle"><tspan class="b">第二轮难样本对齐</tspan><tspan x="1155" dy="15">候选池 5,000 → 前 1,500</tspan><tspan x="1155" dy="15">奖励 v2 · G=4 · 长度 512 / 640</tspan></text>
+<path class="p" d="M1155,110 V100 H535 V110"/>
+<text x="600" y="96" class="lab">回流：难样本再对齐，替换适配器</text>
+<rect x="1280" y="110" width="200" height="58" class="sim"/>
+<text x="1380" y="128" text-anchor="middle"><tspan class="b">产物：医疗文本适配器</tspan><tspan x="1380" dy="15">报告生成器的模型后端</tspan><tspan x="1380" dy="15">缺模型时走确定性模板</tspan></text>
+<path class="e" d="M1250,139 H1280"/>
+<text x="40" y="200" class="lab">这条线解决"通用模型答医疗问题太随意"：先用 3 万条目标域样本把回答风格拉向科普与就医建议，再用规则奖励压掉绝对化诊断与具体剂量。</text>
+<text x="40" y="218" class="lab">第一轮暴露的问题：奖励里"像参考答案"与"有固定结构"互相拉扯，结构命中率归零；1000 条不如 500 条；文档写的奖励权重实际未生效（等权）。第二轮据此改奖励与数据。</text>
+
+<!-- ② 知识库线 -->
+<rect x="40" y="316" width="190" height="58" class="ok"/>
+<text x="135" y="334" text-anchor="middle"><tspan class="b">分层语料</tspan><tspan x="135" dy="15">指南1.00·说明书0.95·教科书0.75</tspan><tspan x="135" dy="15">百科 0.60 · 图谱 0.55 · 问诊 0.30</tspan></text>
+<path class="e" d="M230,345 H260"/>
+<rect x="260" y="316" width="190" height="58" class="ok"/>
+<text x="355" y="334" text-anchor="middle"><tspan class="b">解析与切片</tspan><tspan x="355" dy="15">页码 · 标题层级 · 表格整块</tspan><tspan x="355" dy="15">子块 320 / 父块 1,200</tspan></text>
+<path class="e" d="M450,345 H480"/>
+<rect x="480" y="316" width="190" height="58" class="ok"/>
+<text x="575" y="334" text-anchor="middle"><tspan class="b">三路索引</tspan><tspan x="575" dy="15">语义向量 · 词面 BM25 · 术语倒排</tspan><tspan x="575" dy="15">术语表两百余组同义词</tspan></text>
+<path class="e" d="M670,345 H700"/>
+<rect x="700" y="316" width="190" height="58" class="ok"/>
+<text x="795" y="334" text-anchor="middle"><tspan class="b">在线检索</tspan><tspan x="795" dy="15">扩展≤8 → 各路召回50 → 融合</tspan><tspan x="795" dy="15">精排 → 权威度 → 拒答闸门 0.10</tspan></text>
+<path class="e" d="M890,345 H920"/>
+<rect x="920" y="316" width="190" height="58" class="ok"/>
+<text x="1015" y="334" text-anchor="middle"><tspan class="b">生成与引用核验</tspan><tspan x="1015" dy="15">父块进提示词 · 逐句核验 0.62</tspan><tspan x="1015" dy="15">剂量按（数值，单位）判豁免</tspan></text>
+<path class="e" d="M1110,345 H1140"/>
+<rect x="1140" y="316" width="170" height="58" class="sim"/>
+<text x="1225" y="334" text-anchor="middle"><tspan class="b">检索评测</tspan><tspan x="1225" dy="15">召回@k · MRR · nDCG</tspan><tspan x="1225" dy="15">引用精确率 / 召回率</tspan></text>
+<path class="p" d="M1225,316 V306 H135 V316"/>
+<text x="620" y="302" class="lab">回流：漏召回补语料，同义改写补术语表</text>
+<rect x="1330" y="316" width="150" height="58" class="ok"/>
+<text x="1405" y="334" text-anchor="middle"><tspan class="b">产物：带出处的证据</tspan><tspan x="1405" dy="15">出处标签 · 片段 · 层级</tspan><tspan x="1405" dy="15">拒答标记</tspan></text>
+<path class="e" d="M1310,345 H1330"/>
+<text x="40" y="404" class="lab">这条线解决"答的每句话能不能指回原文"：出处字段随切片落盘，三路召回互补同义改写，权威度只在语义分接近时当裁判，证据不足在生成前硬拒答。</text>
+<text x="40" y="422" class="lab">修过的坑：伪造引用曾拿到召回率 1.0；拒答闸门曾因融合分永远 ≥ 1 而从不触发；短的禁忌句被最小长度丢掉；III 类推荐被正则先匹成 I 类。</text>
+
+<!-- ③ 影像线 -->
+<rect x="40" y="502" width="190" height="58" class="ok"/>
+<text x="135" y="520" text-anchor="middle"><tspan class="b">胸片预训练网络</tspan><tspan x="135" dy="15">DenseNet121 · 18 类病理概率</tspan><tspan x="135" dy="15">第一阶段不训练</tspan></text>
+<path class="e" d="M230,531 H260"/>
+<rect x="260" y="502" width="190" height="58" class="ok"/>
+<text x="355" y="520" text-anchor="middle"><tspan class="b">可解释定位</tspan><tspan x="355" dy="15">梯度类激活图 → 掩码 → 外接框</tspan><tspan x="355" dy="15">复用检测网络，零额外模型</tspan></text>
+<path class="e" d="M450,531 H480"/>
+<rect x="480" y="502" width="190" height="58" class="sim"/>
+<text x="575" y="520" text-anchor="middle"><tspan class="b">视觉语言模型</tspan><tspan x="575" dy="15">Qwen2.5-VL，强制固定字段 JSON</tspan><tspan x="575" dy="15">预训练权重，本机未跑</tspan></text>
+<path class="e" d="M670,531 H700"/>
+<rect x="700" y="502" width="190" height="58" class="sim"/>
+<text x="795" y="520" text-anchor="middle"><tspan class="b">基线评测</tspan><tspan x="795" dy="15">VQA-RAD 闭合题准确率</tspan><tspan x="795" dy="15">CheXlocalize 交并比 · Dice</tspan></text>
+<path class="p" d="M890,531 H920"/>
+<rect x="920" y="502" width="190" height="58" class="plan"/>
+<text x="1015" y="520" text-anchor="middle"><tspan class="b">视觉低秩微调</tspan><tspan x="1015" dy="15">只在基线暴露明确短板后做</tspan><tspan x="1015" dy="15">PMC-VQA 筛后样本</tspan></text>
+<path class="p" d="M1110,531 H1140"/>
+<rect x="1140" y="502" width="170" height="58" class="plan"/>
+<text x="1225" y="520" text-anchor="middle"><tspan class="b">多模态对齐</tspan><tspan x="1225" dy="15">定位奖励 + 安全奖励</tspan><tspan x="1225" dy="15">有量化错误模式再做</tspan></text>
+<path class="p" d="M1015,502 V492 H575 V502"/>
+<text x="640" y="488" class="lab">回流：换权重</text>
+<rect x="1330" y="502" width="150" height="58" class="ok"/>
+<text x="1405" y="520" text-anchor="middle"><tspan class="b">产物：视觉工具</tspan><tspan x="1405" dy="15">检测 · 定位 · 视觉问答</tspan><tspan x="1405" dy="15">标注图</tspan></text>
+<path class="e" d="M1310,531 H1330"/>
+<text x="40" y="590" class="lab">这条线解决"通用检测器不能直接认病灶"：COCO 类别里没有肺炎与积液，先用胸片专用预训练网络出分数，再从它的梯度反推关注区域；视觉模型第一阶段不微调，先拿基线。</text>
+<text x="40" y="608" class="lab">修过的坑：反向钩子挂在整个特征块会因原地激活报错，改挂最后一个稠密块并改用张量钩子；掩码占比大于 0.6 判退化但仍返回，交给安全校验标记。</text>
+
+<!-- ④ 推理编排 -->
+<rect x="40" y="690" width="170" height="58" class="st"/>
+<text x="125" y="708" text-anchor="middle"><tspan class="b">输入校验</tspan><tspan x="125" dy="15">图存在 · 问题非空 · 化验格式</tspan><tspan x="125" dy="15">只记录不终止</tspan></text>
+<path class="e" d="M210,719 H240"/>
+<rect x="240" y="690" width="170" height="58" class="st"/>
+<text x="325" y="708" text-anchor="middle"><tspan class="b">意图路由（规则）</tspan><tspan x="325" dy="15">5 类意图 → 工具计划表</tspan><tspan x="325" dy="15">每次决策落日志</tspan></text>
+<path class="e" d="M410,719 H440"/>
+<rect x="440" y="690" width="190" height="58" class="st"/>
+<text x="535" y="708" text-anchor="middle"><tspan class="b">五个工具逐个调用</tspan><tspan x="535" dy="15">检测 · 定位 · 视觉问答 · 检索 · 标注</tspan><tspan x="535" dy="15">三态判断，绝不给假数据</tspan></text>
+<path class="e" d="M630,719 H660"/>
+<rect x="660" y="690" width="170" height="58" class="st"/>
+<text x="745" y="708" text-anchor="middle"><tspan class="b">汇总成结构化报告</tspan><tspan x="745" dy="15">发现 · 证据 · 问答 · 注意事项</tspan><tspan x="745" dy="15">失败与仿真全部写明</tspan></text>
+<path class="e" d="M830,719 H860"/>
+<rect x="860" y="690" width="170" height="58" class="sim"/>
+<text x="945" y="708" text-anchor="middle"><tspan class="b">报告生成（只读）</tspan><tspan x="945" dy="15">医疗适配器或确定性模板</tspan><tspan x="945" dy="15">不能改发现与证据</tspan></text>
+<path class="e" d="M1030,719 H1060"/>
+<rect x="1060" y="690" width="170" height="58" class="risk"/>
+<text x="1145" y="708" text-anchor="middle"><tspan class="b">安全校验</tspan><tspan x="1145" dy="15">数字与病灶逐项溯源</tspan><tspan x="1145" dy="15">绝对诊断 · 剂量 · 退化掩码</tspan></text>
+<path class="e" d="M1230,719 H1260"/>
+<rect x="1260" y="690" width="170" height="58" class="st"/>
+<text x="1345" y="708" text-anchor="middle"><tspan class="b">整理输出</tspan><tspan x="1345" dy="15">答案 + 引用编号 + 来源清单</tspan><tspan x="1345" dy="15">标注图 · 轨迹 · 降级列表</tspan></text>
+<path class="e" d="M1430,719 H1460"/><text x="1436" y="712" class="lab">标记非空</text>
+<rect x="1460" y="690" width="150" height="58" class="new"/>
+<text x="1535" y="708" text-anchor="middle"><tspan class="b">医生复核</tspan><tspan x="1535" dy="15">图在中断节点暂停</tspan><tspan x="1535" dy="15">确认后放行</tspan></text>
+<!-- 三条产物汇入 -->
+<path class="f" d="M1480,139 H1524 V676 H945 V690"/>
+<path class="f" d="M1480,345 H1512 V668 H535 V690"/>
+<path class="f" d="M1480,531 H1500 V660 H520 V690"/>
+<text x="1240" y="656" class="lab">视觉工具、证据检索进"五个工具"，文本适配器进"报告生成"</text>
+<text x="40" y="772" class="lab">本机仿真实测：四种意图全部跑通，综合报告一次 3.9 秒，四个真实后端 + 两个仿真后端，安全标记为空。语言模型在这条链里只读经过校验的工具输出，不能自己编坐标、数值和来源。</text>
+<text x="40" y="790" class="lab">尚未实现的回路：安全校验不过时把无依据列表回填提示词让报告模型重写（最多 2 次）；路由日志攒够后换成语言模型路由并用日志做评测集。</text>
+
+<!-- ⑤ 上线与反馈 -->
+<rect x="40" y="854" width="190" height="58" class="new"/>
+<text x="135" y="872" text-anchor="middle"><tspan class="b">服务化</tspan><tspan x="135" dy="15">vLLM 连续批处理 · 前缀缓存</tspan><tspan x="135" dy="15">FP8 / AWQ 量化 · 适配器热加载</tspan></text>
+<path class="e" d="M230,883 H260"/>
+<rect x="260" y="854" width="190" height="58" class="new"/>
+<text x="355" y="872" text-anchor="middle"><tspan class="b">三级降级（高爆发）</tspan><tspan x="355" dy="15">一级全跑 · 二级关视觉问答走模板</tspan><tspan x="355" dy="15">三级只检索 + 模板，拒答阈值抬高</tspan></text>
+<path class="e" d="M450,883 H480"/>
+<rect x="480" y="854" width="190" height="58" class="new"/>
+<text x="575" y="872" text-anchor="middle"><tspan class="b">监控与告警</tspan><tspan x="575" dy="15">延迟 p95 · 降级率 · 安全标记率</tspan><tspan x="575" dy="15">拒答率 · 显存 · 队列等待</tspan></text>
+<path class="e" d="M670,883 H700"/>
+<rect x="700" y="854" width="190" height="58" class="new"/>
+<text x="795" y="872" text-anchor="middle"><tspan class="b">灰度发布</tspan><tspan x="795" dy="15">影子流量 → 小比例 A/B → 全量</tspan><tspan x="795" dy="15">指标回退即回滚适配器</tspan></text>
+<path class="e" d="M890,883 H920"/>
+<rect x="920" y="854" width="190" height="58" class="new"/>
+<text x="1015" y="872" text-anchor="middle"><tspan class="b">坏例库</tspan><tspan x="1015" dy="15">复核驳回 · 无依据表述 · 拒答</tspan><tspan x="1015" dy="15">按类别与失败类型归档</tspan></text>
+<path class="e" d="M1110,883 H1140"/>
+<rect x="1140" y="854" width="190" height="58" class="new"/>
+<text x="1235" y="872" text-anchor="middle"><tspan class="b">回流三条线</tspan><tspan x="1235" dy="15">难样本 → 对齐；缺证据 → 语料</tspan><tspan x="1235" dy="15">漏检 / 误定位 → 视觉微调样本</tspan></text>
+<path class="e" d="M1535,748 V830 H1015 V854"/>
+<text x="40" y="944" class="lab">这一行不在仓库里，是按项目现状补的设计：编排层已经把"降级"做成显式字段，上线只需要把触发条件接到队列等待与显存水位上；医生复核用图的中断节点实现，不改编排代码。</text>
+<text x="40" y="962" class="lab">评效果看四个数：p95 延迟、降级率、安全标记率、复核驳回率；任何一个越过阈值都先回滚适配器，再查坏例库。</text>
+
+<!-- 图例 -->
+<g transform="translate(30,1000)">
+<rect x="0" y="0" width="14" height="14" class="ok"/><text x="20" y="12">本机已验证</text>
+<rect x="110" y="0" width="14" height="14" class="sim"/><text x="130" y="12">代码就绪，等模型或数据</text>
+<rect x="290" y="0" width="14" height="14" class="risk"/><text x="310" y="12">安全与失败分析</text>
+<rect x="420" y="0" width="14" height="14" class="st"/><text x="440" y="12">编排节点</text>
+<rect x="510" y="0" width="14" height="14" class="new"/><text x="530" y="12">补充设计</text>
+<rect x="600" y="0" width="14" height="14" class="plan"/><text x="620" y="12">规划中</text>
+<path class="f" d="M690,7 H730"/><text x="736" y="12">能力线交付给编排的产物</text>
+<path class="p" d="M880,7 H920"/><text x="926" y="12">回流 / 未打通</text>
+</g>
+</svg>

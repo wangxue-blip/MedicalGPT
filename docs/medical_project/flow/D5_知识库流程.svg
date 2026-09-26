@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 900" width="1640" height="900" role="img" aria-label="知识库流程：离线建库从分层来源到三路索引，在线检索从术语扩展到引用核验，评测回流补语料与术语表">
+<style>
+text{font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif;fill:#1B2429;font-size:11px}
+.b{font-weight:700}.lab{fill:#4A5A64}.ttl{font-size:22px;font-weight:700;fill:#163A4F}.sub{font-size:12px;fill:#4A5A64}.lane{font-size:13px;font-weight:700;fill:#163A4F}
+.ok{fill:#E4F1E8;stroke:#3E8E5A;stroke-width:1.4}.sim{fill:#FBEFD9;stroke:#C8871E;stroke-width:1.4}.risk{fill:#F8E3E2;stroke:#B8413F;stroke-width:1.4}.new{fill:#ECE6F6;stroke:#6B4FA3;stroke-width:1.4}.plan{fill:#EEF1F3;stroke:#7A8790;stroke-width:1.4;stroke-dasharray:5 4}.st{fill:#E6F0F6;stroke:#2F7FA6;stroke-width:1.4}.dec{fill:#FFFFFF;stroke:#2F7FA6;stroke-width:1.6}
+.bg{fill:#F5F7F8;stroke:#D5DDE2;stroke-width:1}
+.e{fill:none;stroke:#6F7E88;stroke-width:1.6;marker-end:url(#ar)}.bus{fill:none;stroke:#6F7E88;stroke-width:1.6}.p{fill:none;stroke:#7A8790;stroke-width:1.6;stroke-dasharray:6 5;marker-end:url(#arp)}
+</style>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6F7E88"/></marker>
+<marker id="arp" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7A8790"/></marker>
+</defs>
+<rect width="1640" height="900" fill="#FFFFFF"/>
+<!-- 图 D5 知识库流程 -->
+<text x="30" y="34" class="ttl">图 D5 · 知识库流程：离线把出处随切片落盘，在线三路召回、硬拒答、逐句核验</text>
+<text x="30" y="54" class="sub">上半是离线建库（跑一次），下半是在线查询（每次请求）。菱形是判断，红色是闸门。所有阈值来自代码默认值。</text>
+
+<!-- 离线 -->
+<rect x="20" y="70" width="1600" height="300" class="bg"/>
+<text x="34" y="90" class="lane">离线建库：来源分层 → 解析 → 结构感知切片 → 术语表 → 三路索引</text>
+<rect x="40" y="104" width="210" height="100" class="ok"/>
+<text x="145" y="122" text-anchor="middle"><tspan class="b">六个来源层级（权威度）</tspan><tspan x="145" dy="15">指南 1.00 · 说明书 0.95</tspan><tspan x="145" dy="15">教科书 0.75 · 百科 0.60</tspan><tspan x="145" dy="15">知识图谱 0.55</tspan><tspan x="145" dy="15">在线问诊 0.30：默认不入库</tspan></text>
+<path class="e" d="M250,154 H280"/>
+<rect x="280" y="104" width="220" height="100" class="ok"/>
+<text x="390" y="122" text-anchor="middle"><tspan class="b">解析成原始文档块</tspan><tspan x="390" dy="15">PDF 双后端：正文与表格分别抽取</tspan><tspan x="390" dy="15">DOCX / MD / TXT / 问答 JSONL</tspan><tspan x="390" dy="15">每块带页码 · 是否标题 · 标题层级</tspan><tspan x="390" dy="15">内容类型：正文 / 表格 / 问答</tspan></text>
+<path class="e" d="M500,154 H530"/>
+<rect x="530" y="104" width="250" height="100" class="ok"/>
+<text x="655" y="122" text-anchor="middle"><tspan class="b">结构感知切片</tspan><tspan x="655" dy="15">标题栈 → 章节路径（第二章 > 2.1）</tspan><tspan x="655" dy="15">子块320 · 重叠64 · 父块1,200 · 最小40</tspan><tspan x="655" dy="15">表格整块不切，问答一条一块</tspan><tspan x="655" dy="15">推荐等级 I/IIa/IIb/III、A–D 逐级继承</tspan></text>
+<path class="e" d="M780,154 H810"/>
+<rect x="810" y="104" width="220" height="100" class="ok"/>
+<text x="920" y="122" text-anchor="middle"><tspan class="b">切片库 chunks.jsonl</tspan><tspan x="920" dy="15">每片：文本 · 父文本 · 章节路径 · 页码</tspan><tspan x="920" dy="15">版本 · 推荐等级 · 内容类型 · 权威度</tspan><tspan x="920" dy="15">建库摘要必看：无章节路径占比</tspan><tspan x="920" dy="15">与推荐等级抽取覆盖率</tspan></text>
+<path class="e" d="M1030,154 H1060"/>
+<rect x="1060" y="104" width="250" height="100" class="ok"/>
+<text x="1185" y="122" text-anchor="middle"><tspan class="b">三路索引</tspan><tspan x="1185" dy="15">语义向量 bge-m3；缺模型退化为哈希 n-gram</tspan><tspan x="1185" dy="15">词面 BM25：k1=1.5 · b=0.75，英文药名整词</tspan><tspan x="1185" dy="15">术语倒排：两百余组同义词，"非"字否定守卫</tspan><tspan x="1185" dy="15">只有向量需落盘，其余秒级重建</tspan></text>
+<path class="e" d="M1310,154 H1340"/>
+<rect x="1340" y="104" width="260" height="100" class="sim"/>
+<text x="1470" y="122" text-anchor="middle"><tspan class="b">索引摘要 index_summary.json</tspan><tspan x="1470" dy="15">记录每一路实际后端</tspan><tspan x="1470" dy="15">向量路静默降级只在这里能看出来</tspan><tspan x="1470" dy="15">缓存带切片指纹：语料换了拒绝加载</tspan><tspan x="1470" dy="15">触发重建，不拿旧语料检索</tspan></text>
+<rect x="40" y="224" width="460" height="58" class="risk"/>
+<text x="270" y="242" text-anchor="middle"><tspan class="b">为什么在线问诊默认不入库</tspan><tspan x="270" dy="15">未审核的答案一旦配上引用编号，看起来比没有 RAG 更可信</tspan><tspan x="270" dy="15">确需引入必须单独建库、界面区分、指标分开统计</tspan></text>
+<rect x="530" y="224" width="500" height="58" class="st"/>
+<text x="780" y="242" text-anchor="middle"><tspan class="b">为什么父子两层</tspan><tspan x="780" dy="15">检索用 320 字子块，命中更准；提示词用 1,200 字父块，上下文更完整</tspan><tspan x="780" dy="15">"小块检索、大块生成"避免把一条推荐从它的适用条件里切掉</tspan></text>
+<rect x="1060" y="224" width="540" height="58" class="st"/>
+<text x="1330" y="242" text-anchor="middle"><tspan class="b">修过的坑</tspan><tspan x="1330" dy="15">标题解析失败时层级回退成 1 会把整个栈弹空；最小长度 40 曾把"孕妇禁用"这类短禁忌句丢掉</tspan><tspan x="1330" dy="15">表格正文回显造成重复切片；III 类推荐被正则先匹成 I 类；9 组同义词写错</tspan></text>
+<text x="40" y="318" class="lab">数据来源：临床指南与说明书 PDF 由用户放入；华佗百科问答与知识图谱问答各最多取 20,000 条；教科书为规划来源。本机只用 4～5 条内置夹具跑通链路，正式语料在服务器上构建。</text>
+<text x="40" y="336" class="lab">评测：建库后先看两个数（无章节路径占比应接近 0，推荐等级覆盖率），再跑检索评测；这两个数就是"元数据没丢"的量化证据。</text>
+
+<!-- 在线 -->
+<rect x="20" y="386" width="1600" height="440" class="bg"/>
+<text x="34" y="406" class="lane">在线查询：术语扩展 → 三路各召回 50 → 倒数排名融合 → 精排 → 权威度加权 → 拒答闸门 → 生成 → 逐句核验</text>
+<rect x="40" y="424" width="180" height="58" class="ok"/>
+<text x="130" y="442" text-anchor="middle"><tspan class="b">用户问题</tspan><tspan x="130" dy="15">"二甲双胍肾功能</tspan><tspan x="130" dy="15">不好还能用吗"</tspan></text>
+<path class="e" d="M220,453 H250"/>
+<rect x="250" y="424" width="200" height="58" class="ok"/>
+<text x="350" y="442" text-anchor="middle"><tspan class="b">术语归一与扩展</tspan><tspan x="350" dy="15">最长匹配，最多 8 个变体</tspan><tspan x="350" dy="15">心梗→心肌梗死/急性心梗/AMI</tspan></text>
+<path class="e" d="M450,453 H480"/>
+<rect x="480" y="424" width="200" height="58" class="ok"/>
+<text x="580" y="442" text-anchor="middle"><tspan class="b">三路各召回 50</tspan><tspan x="580" dy="15">多变体按最好名次合并</tspan><tspan x="580" dy="15">单路失败只跳过该路</tspan></text>
+<path class="e" d="M680,453 H710"/>
+<rect x="710" y="424" width="200" height="58" class="ok"/>
+<text x="810" y="442" text-anchor="middle"><tspan class="b">倒数排名融合</tspan><tspan x="810" dy="15">k=60；语义1.0 词面1.0 术语0.6</tspan><tspan x="810" dy="15">只看名次，不比三路分数量纲</tspan></text>
+<path class="e" d="M910,453 H940"/>
+<polygon points="1040,424 1140,453 1040,482 940,453" class="dec"/>
+<text x="1040" y="457" text-anchor="middle" class="b">精排模型可用？</text>
+<path class="e" d="M1040,482 V506"/><text x="1046" y="500" class="lab">是</text>
+<rect x="940" y="506" width="200" height="44" class="sim"/>
+<text x="1040" y="524" text-anchor="middle"><tspan class="b">交叉编码器精排前 50</tspan><tspan x="1040" dy="15">bge-reranker-v2-m3</tspan></text>
+<path class="e" d="M1140,453 H1170"/><text x="1146" y="447" class="lab">否</text>
+<path class="e" d="M1140,528 H1155 V453"/>
+<rect x="1170" y="424" width="200" height="58" class="ok"/>
+<text x="1270" y="442" text-anchor="middle"><tspan class="b">权威度 + 时效加权</tspan><tspan x="1270" dy="15">权威度系数 0.15 · 时效 0.05</tspan><tspan x="1270" dy="15">同分时指南压过百科压过问诊</tspan></text>
+<path class="e" d="M1370,453 H1400"/>
+<polygon points="1500,424 1600,453 1500,482 1400,453" class="dec"/>
+<text x="1500" y="457" text-anchor="middle" class="b">绝对相关度 ≥ 0.10？</text>
+<path class="e" d="M1500,482 V520 H1420"/><text x="1506" y="500" class="lab">否</text>
+<rect x="1200" y="498" width="220" height="44" class="risk"/>
+<text x="1310" y="516" text-anchor="middle"><tspan class="b">硬拒答（生成之前）</tspan><tspan x="1310" dy="15">"根据已有资料无法确定，建议就医"</tspan></text>
+<!-- 是 分支 -->
+<path class="e" d="M1600,453 H1612 V596 H1420"/><text x="1615" y="540" class="lab">是</text>
+<rect x="1200" y="574" width="220" height="44" class="ok"/>
+<text x="1310" y="592" text-anchor="middle"><tspan class="b">组装提示词</tspan><tspan x="1310" dy="15">证据预算按条均摊，送父块，编号稳定</tspan></text>
+<path class="e" d="M1200,596 H1170"/>
+<rect x="960" y="574" width="210" height="44" class="sim"/>
+<text x="1065" y="592" text-anchor="middle"><tspan class="b">生成（医疗适配器）</tspan><tspan x="1065" dy="15">温度 0.2 · 剂量必须引用原文</tspan></text>
+<path class="e" d="M960,596 H930"/>
+<rect x="700" y="574" width="230" height="58" class="risk"/>
+<text x="815" y="592" text-anchor="middle"><tspan class="b">逐句引用核验</tspan><tspan x="815" dy="15">编号越界 · 无支撑（阈值 0.62）· 缺引用</tspan><tspan x="815" dy="15">剂量豁免：数值与单位都在被引原文里</tspan></text>
+<path class="e" d="M700,596 H670"/>
+<rect x="450" y="574" width="220" height="58" class="ok"/>
+<text x="560" y="592" text-anchor="middle"><tspan class="b">输出</tspan><tspan x="560" dy="15">答案 + 来源清单 + 核查报告</tspan><tspan x="560" dy="15">各路名次 · 融合分 · 精排分 · 降级项</tspan></text>
+<text x="40" y="680" class="lab">拒答为什么放在生成之前：靠提示词里一句"无法回答请说……"模型可以不听；闸门不组装提示词、不调用模型，证据不足就不可能编出答案。</text>
+<text x="40" y="698" class="lab">拒答阈值为什么用"绝对相关度"：融合分是名次的函数，永远接近 1，用它做阈值从不触发；改用精排逻辑值的 sigmoid 或 n-gram 覆盖度才有绝对意义。</text>
+<text x="40" y="716" class="lab">剂量豁免解决什么：训练侧"出现剂量就扣分"搬到检索场景会让系统不敢念说明书；豁免把"模型自己编的剂量"和"转述被引原文的剂量"分开，只要一个数字对不上整句失去豁免。</text>
+<text x="40" y="734" class="lab">效果怎么看：检索侧看单路召回、融合增益、精排增量；引用侧看精确率与召回率一起、剂量违规逐条人工过；降级路径跑出的数字不能与完整依赖下的数字比较。</text>
+<rect x="40" y="756" width="760" height="58" class="plan"/>
+<text x="420" y="774" text-anchor="middle"><tspan class="b">回流与转向</tspan><tspan x="420" dy="15">漏召回 → 补语料；同义改写漏召回 → 补术语表；引用不支持 → 调阈值或换父块粒度</tspan><tspan x="420" dy="15">可能转向：图检索 GraphRAG（药物相互作用）· 晚交互 ColBERT · 自反思检索 Self-RAG · 检索增强微调 RAFT</tspan></text>
+<rect x="830" y="756" width="770" height="58" class="st"/>
+<text x="1215" y="774" text-anchor="middle"><tspan class="b">与智能体的接口</tspan><tspan x="1215" dy="15">智能体的"证据检索"工具零改动复用这条链：检索词 = 用户问题 + 检出病理的中文名；拒答标记原样带回报告</tspan><tspan x="1215" dy="15">引用核验与训练侧的剂量正则是同一份，训练罚什么、提示词要求什么、校验查什么三处口径一致</tspan></text>
+<g transform="translate(30,846)">
+<rect x="0" y="0" width="14" height="14" class="ok"/><text x="20" y="12">本机已跑通</text>
+<rect x="110" y="0" width="14" height="14" class="sim"/><text x="130" y="12">等模型 / 服务器</text>
+<rect x="240" y="0" width="14" height="14" class="risk"/><text x="260" y="12">闸门 / 风险 / 修过的坑</text>
+<rect x="400" y="0" width="14" height="14" class="st"/><text x="420" y="12">解释</text>
+<rect x="470" y="0" width="14" height="14" class="plan"/><text x="490" y="12">回流与转向</text>
+<polygon points="600,0 614,7 600,14 586,7" class="dec"/><text x="620" y="12">判断</text>
+</g>
+</svg>

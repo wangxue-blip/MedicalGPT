@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 820" width="1640" height="820" role="img" aria-label="上线与高爆发降级流程（补充设计）：接入、队列、推理服务、三级降级、缓存、监控告警、灰度发布与回滚、医生复核回流">
+<style>
+text{font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif;fill:#1B2429;font-size:11px}
+.b{font-weight:700}.lab{fill:#4A5A64}.ttl{font-size:22px;font-weight:700;fill:#163A4F}.sub{font-size:12px;fill:#4A5A64}.lane{font-size:13px;font-weight:700;fill:#163A4F}
+.ok{fill:#E4F1E8;stroke:#3E8E5A;stroke-width:1.4}.sim{fill:#FBEFD9;stroke:#C8871E;stroke-width:1.4}.risk{fill:#F8E3E2;stroke:#B8413F;stroke-width:1.4}.new{fill:#ECE6F6;stroke:#6B4FA3;stroke-width:1.4}.plan{fill:#EEF1F3;stroke:#7A8790;stroke-width:1.4;stroke-dasharray:5 4}.st{fill:#E6F0F6;stroke:#2F7FA6;stroke-width:1.4}.dec{fill:#FFFFFF;stroke:#2F7FA6;stroke-width:1.6}
+.bg{fill:#F5F7F8;stroke:#D5DDE2;stroke-width:1}
+.e{fill:none;stroke:#6F7E88;stroke-width:1.6;marker-end:url(#ar)}.bus{fill:none;stroke:#6F7E88;stroke-width:1.6}.p{fill:none;stroke:#7A8790;stroke-width:1.6;stroke-dasharray:6 5;marker-end:url(#arp)}
+</style>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6F7E88"/></marker>
+<marker id="arp" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7A8790"/></marker>
+</defs>
+<rect width="1640" height="820" fill="#FFFFFF"/>
+<text x="30" y="34" class="ttl">图 D6 · 上线与用户高爆发（补充设计）：请求怎么排队、什么时候降级、降到哪一级、怎么回滚</text>
+<text x="30" y="54" class="sub">仓库里没有这一层，按现有编排的"降级字段"与"中断节点"补出来。紫色是补充组件，菱形是触发条件，红色是安全底线。</text>
+
+<!-- 请求路径 -->
+<rect x="20" y="70" width="1600" height="250" class="bg"/>
+<text x="34" y="90" class="lane">请求路径：接入 → 缓存 → 队列 → 推理服务 → 编排 → 输出</text>
+<rect x="40" y="110" width="200" height="72" class="new"/>
+<text x="140" y="128" text-anchor="middle"><tspan class="b">接入层</tspan><tspan x="140" dy="15">鉴权 · 每用户限流 · 请求体大小</tspan><tspan x="140" dy="15">影像去标识化（DICOM 头脱敏）</tspan><tspan x="140" dy="15">不落盘原图，只存哈希</tspan></text>
+<path class="e" d="M240,146 H270"/>
+<polygon points="370,110 470,146 370,182 270,146" class="dec"/>
+<text x="370" y="142" text-anchor="middle" class="b">缓存命中？</text>
+<text x="370" y="157" text-anchor="middle" class="lab">问题 + 图哈希 + 版本</text>
+<path class="e" d="M370,182 V290 H1560 V182"/><text x="376" y="206" class="lab">是：直接返回上次结果（带"缓存"标记）</text>
+<path class="e" d="M470,146 H500"/><text x="474" y="140" class="lab">否</text>
+<rect x="500" y="110" width="200" height="72" class="new"/>
+<text x="600" y="128" text-anchor="middle"><tspan class="b">请求队列</tspan><tspan x="600" dy="15">按意图分队列：文本 / 影像 / 报告</tspan><tspan x="600" dy="15">报告类最重，单独限并发</tspan><tspan x="600" dy="15">记录等待时长作为降级信号</tspan></text>
+<path class="e" d="M700,146 H730"/>
+<rect x="730" y="110" width="220" height="72" class="new"/>
+<text x="840" y="128" text-anchor="middle"><tspan class="b">推理服务</tspan><tspan x="840" dy="15">文本模型：vLLM 连续批处理 + 前缀缓存</tspan><tspan x="840" dy="15">视觉模型独立进程；检测网络常驻显存</tspan><tspan x="840" dy="15">FP8 / AWQ 量化，适配器热加载</tspan></text>
+<path class="e" d="M950,146 H980"/>
+<rect x="980" y="110" width="220" height="72" class="st"/>
+<text x="1090" y="128" text-anchor="middle"><tspan class="b">编排（已实现）</tspan><tspan x="1090" dy="15">七个节点 · 五个工具 · 三态判断</tspan><tspan x="1090" dy="15">降级列表与后端名随结果返回</tspan><tspan x="1090" dy="15">安全校验是最后一道闸</tspan></text>
+<path class="e" d="M1200,146 H1230"/>
+<polygon points="1330,110 1430,146 1330,182 1230,146" class="dec"/>
+<text x="1330" y="142" text-anchor="middle" class="b">安全标记为空？</text>
+<text x="1330" y="157" text-anchor="middle" class="lab">无依据 / 绝对诊断 / 剂量</text>
+<path class="e" d="M1430,146 H1460"/><text x="1434" y="140" class="lab">是</text>
+<rect x="1460" y="110" width="150" height="72" class="ok"/>
+<text x="1535" y="128" text-anchor="middle"><tspan class="b">返回用户</tspan><tspan x="1535" dy="15">答案 + 引用 + 标注图</tspan><tspan x="1535" dy="15">降级列表可见</tspan><tspan x="1535" dy="15">写入缓存</tspan></text>
+<path class="e" d="M1330,182 V250 H1230"/><text x="1336" y="230" class="lab">否</text>
+<rect x="1010" y="228" width="220" height="44" class="new"/>
+<text x="1120" y="246" text-anchor="middle"><tspan class="b">医生复核队列</tspan><tspan x="1120" dy="15">图在中断节点暂停，确认后放行或驳回</tspan></text>
+<text x="40" y="256" class="lab">缓存命中的前提是"同一版本"：适配器、语料、阈值任一变化都进缓存键，避免升级后还在吐旧答案。</text>
+<text x="40" y="274" class="lab">医生复核不是全量：只有安全标记非空的结果进队列；放行结果同样写入坏例库做正样本，驳回结果按失败类型归档。</text>
+
+<!-- 三级降级 -->
+<rect x="20" y="336" width="1010" height="290" class="bg"/>
+<text x="34" y="356" class="lane">用户高爆发时的三级降级：触发条件在左，每一级砍掉什么在右</text>
+<polygon points="150,380 260,410 150,440 40,410" class="dec"/>
+<text x="150" y="406" text-anchor="middle" class="b">队列等待 > 3 秒</text>
+<text x="150" y="421" text-anchor="middle" class="lab">或显存水位 > 85%</text>
+<path class="e" d="M260,410 H300"/>
+<rect x="300" y="380" width="330" height="60" class="new"/>
+<text x="465" y="398" text-anchor="middle"><tspan class="b">一级（正常）：五个工具全跑</tspan><tspan x="465" dy="15">综合报告约 4 秒（本机仿真）· 视觉问答走真实模型</tspan><tspan x="465" dy="15">报告生成走医疗适配器</tspan></text>
+<path class="e" d="M150,440 V466"/>
+<polygon points="150,466 260,496 150,526 40,496" class="dec"/>
+<text x="150" y="492" text-anchor="middle" class="b">等待 > 8 秒</text>
+<text x="150" y="507" text-anchor="middle" class="lab">或 p95 > 15 秒持续 1 分钟</text>
+<path class="e" d="M260,496 H300"/>
+<rect x="300" y="466" width="330" height="60" class="new"/>
+<text x="465" y="484" text-anchor="middle"><tspan class="b">二级：关掉视觉问答，报告走确定性模板</tspan><tspan x="465" dy="15">保留检测 · 定位 · 检索 · 标注图；停掉两次大模型调用</tspan><tspan x="465" dy="15">输出里明确写"本次未使用视觉问答"</tspan></text>
+<path class="e" d="M150,526 V552"/>
+<polygon points="150,552 260,582 150,612 40,582" class="dec"/>
+<text x="150" y="578" text-anchor="middle" class="b">等待 > 20 秒</text>
+<text x="150" y="593" text-anchor="middle" class="lab">或推理服务不可用</text>
+<path class="e" d="M260,582 H300"/>
+<rect x="300" y="552" width="330" height="60" class="risk"/>
+<text x="465" y="570" text-anchor="middle"><tspan class="b">三级：只检索 + 模板，拒答阈值抬高</tspan><tspan x="465" dy="15">影像问题直接答"当前仅提供文献检索"，不出任何病灶结论</tspan><tspan x="465" dy="15">安全底线不降：校验照跑，宁可拒答不给假数据</tspan></text>
+<rect x="660" y="380" width="350" height="232" class="st"/>
+<text x="835" y="398" text-anchor="middle" class="b">为什么这样分级</text>
+<text x="672" y="418">编排层已经把每个工具的"后端 / 已降级"做成显式字段，</text>
+<text x="672" y="434">降级只是把触发条件接到队列等待与显存水位上，不改编排代码。</text>
+<text x="672" y="456">先砍最贵的：视觉问答与报告模型各占一次 7B 级前向，</text>
+<text x="672" y="472">检测网络只有 224 像素的一次前向，检索是毫秒级。</text>
+<text x="672" y="494">降级必须对用户可见：输出里的降级列表原样展示，</text>
+<text x="672" y="510">不能让二级结果和一级结果长得一样。</text>
+<text x="672" y="532">恢复要滞后：等待时长连续 2 分钟低于阈值再升级，</text>
+<text x="672" y="548">避免在阈值附近来回抖动。</text>
+<text x="672" y="570">安全校验永不降级：它只是正则与数字比对，代价可忽略；</text>
+<text x="672" y="586">高峰期最容易出事的恰恰是"为了快省掉校验"。</text>
+
+<!-- 监控与发布 -->
+<rect x="1050" y="336" width="570" height="290" class="bg"/>
+<text x="1064" y="356" class="lane">监控、告警、灰度与回滚</text>
+<rect x="1070" y="380" width="250" height="86" class="new"/>
+<text x="1195" y="398" text-anchor="middle"><tspan class="b">四个核心指标</tspan><tspan x="1195" dy="15">延迟 p95 · 降级率</tspan><tspan x="1195" dy="15">安全标记率 · 复核驳回率</tspan><tspan x="1195" dy="15">辅助：拒答率 · 显存 · 队列长度</tspan><tspan x="1195" dy="15">按意图分开看，不看总平均</tspan></text>
+<rect x="1340" y="380" width="260" height="86" class="new"/>
+<text x="1470" y="398" text-anchor="middle"><tspan class="b">告警规则</tspan><tspan x="1470" dy="15">安全标记率翻倍 → 立刻回滚适配器</tspan><tspan x="1470" dy="15">复核驳回率 > 阈值 → 冻结发布</tspan><tspan x="1470" dy="15">降级率 > 30% 持续 10 分钟 → 扩容</tspan><tspan x="1470" dy="15">拒答率突降 → 查语料是否被换</tspan></text>
+<rect x="1070" y="486" width="530" height="58" class="new"/>
+<text x="1335" y="504" text-anchor="middle"><tspan class="b">灰度发布</tspan><tspan x="1335" dy="15">影子流量（只记录不返回）→ 5% A/B → 50% → 全量；每一步看四个指标</tspan><tspan x="1335" dy="15">适配器、语料版本、阈值三者任一变化都算一次发布，各自可单独回滚</tspan></text>
+<rect x="1070" y="562" width="530" height="50" class="plan"/>
+<text x="1335" y="580" text-anchor="middle"><tspan class="b">回流</tspan><tspan x="1335" dy="15">复核驳回与无依据表述进坏例库 → 难样本对齐 / 补语料 / 视觉微调样本（见 D2 第五行）</tspan></text>
+
+<!-- 底部说明 -->
+<rect x="20" y="640" width="1600" height="150" class="bg"/>
+<text x="34" y="660" class="lane">这一层解决什么、怎么评效果、还缺什么</text>
+<text x="34" y="684" class="lab">解决什么：单进程编排在高峰期会把所有请求排成一条队，视觉问答与报告模型两次大模型调用是瓶颈；分级降级让系统在高峰期"变笨但不变危险"，并把变笨这件事明确告诉用户。</text>
+<text x="34" y="704" class="lab">怎么评：压测用回放的真实请求分布（纯文本约七成、影像三成、报告一成），看每一级的 p95 与安全标记率；降级不允许让安全标记率上升，否则说明模板路径本身有问题。</text>
+<text x="34" y="724" class="lab">还缺什么：接入层与队列没有代码；缓存键设计需要和适配器版本管理一起做；医生复核界面需要展示标注图与来源清单，复核动作要写回坏例库。</text>
+<text x="34" y="744" class="lab">可能转向：推测解码提速两到三倍可以把二级阈值放宽；SGLang 的结构化输出能把视觉问答的 JSON 解析失败率压到接近 0；多卡时按意图把视觉与文本模型放到不同卡。</text>
+<g transform="translate(30,770)">
+<rect x="0" y="0" width="14" height="14" class="new"/><text x="20" y="12">补充组件（未实现）</text>
+<rect x="150" y="0" width="14" height="14" class="st"/><text x="170" y="12">已实现的编排 / 解释</text>
+<rect x="300" y="0" width="14" height="14" class="ok"/><text x="320" y="12">输出</text>
+<rect x="370" y="0" width="14" height="14" class="risk"/><text x="390" y="12">安全底线</text>
+<polygon points="480,0 494,7 480,14 466,7" class="dec"/><text x="500" y="12">触发条件 / 判断</text>
+</g>
+</svg>

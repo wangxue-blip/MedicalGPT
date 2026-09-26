@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 900" width="1640" height="900" role="img" aria-label="评测流程：六类输入进入文本模型、知识库、智能体三组指标，汇总成表并生成报告，坏例分析回流到改进决策">
+<style>
+text{font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif;fill:#1B2429;font-size:11px}
+.b{font-weight:700}.lab{fill:#4A5A64}.ttl{font-size:22px;font-weight:700;fill:#163A4F}.sub{font-size:12px;fill:#4A5A64}.lane{font-size:13px;font-weight:700;fill:#163A4F}.mono{font-family:Consolas,"Microsoft YaHei",monospace;font-size:10.5px}
+.ok{fill:#E4F1E8;stroke:#3E8E5A;stroke-width:1.4}.sim{fill:#FBEFD9;stroke:#C8871E;stroke-width:1.4}.risk{fill:#F8E3E2;stroke:#B8413F;stroke-width:1.4}.new{fill:#ECE6F6;stroke:#6B4FA3;stroke-width:1.4}.plan{fill:#EEF1F3;stroke:#7A8790;stroke-width:1.4;stroke-dasharray:5 4}.st{fill:#E6F0F6;stroke:#2F7FA6;stroke-width:1.4}
+.bg{fill:#F5F7F8;stroke:#D5DDE2;stroke-width:1}
+.e{fill:none;stroke:#6F7E88;stroke-width:1.6;marker-end:url(#ar)}.bus{fill:none;stroke:#6F7E88;stroke-width:1.6}.p{fill:none;stroke:#7A8790;stroke-width:1.6;stroke-dasharray:6 5;marker-end:url(#arp)}
+</style>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6F7E88"/></marker>
+<marker id="arp" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7A8790"/></marker>
+</defs>
+<rect width="1640" height="900" fill="#FFFFFF"/>
+<!-- 图 D4 评测流程 -->
+<text x="30" y="34" class="ttl">图 D4 · 评测流程：三个子系统各评各的，指标汇成一张表，坏例回流成下一轮的改动</text>
+<text x="30" y="54" class="sub">左列是评测输入，中间三块是指标，右列是汇总、报告、坏例分析与决策。所有指标都是启发式自动指标，报告里没有一个叫"医学准确率"。</text>
+
+<!-- 输入列 -->
+<rect x="20" y="70" width="250" height="600" class="bg"/>
+<text x="34" y="90" class="lane">评测输入</text>
+<rect x="40" y="104" width="210" height="44" class="ok"/>
+<text x="145" y="122" text-anchor="middle"><tspan class="b">留出问答集 500 条</tspan><tspan x="145" dy="15">与全部训练样本按编号互斥</tspan></text>
+<rect x="40" y="166" width="210" height="44" class="ok"/>
+<text x="145" y="184" text-anchor="middle"><tspan class="b">留出长文本集 1,000 条</tspan><tspan x="145" dy="15">算困惑度，含前者 500 条</tspan></text>
+<rect x="40" y="228" width="210" height="44" class="ok"/>
+<text x="145" y="246" text-anchor="middle"><tspan class="b">C-Eval 医学 dev / valid</tspan><tspan x="145" dy="15">本机 15 题；test 永不使用</tspan></text>
+<rect x="40" y="330" width="210" height="44" class="sim"/>
+<text x="145" y="348" text-anchor="middle"><tspan class="b">检索评测集</tspan><tspan x="145" dy="15">问句 + 金标切片，或参考答案弱标</tspan></text>
+<rect x="40" y="452" width="210" height="44" class="sim"/>
+<text x="145" y="470" text-anchor="middle"><tspan class="b">VQA-RAD 测试集</tspan><tspan x="145" dy="15">CheXlocalize 专家分割标注</tspan></text>
+<rect x="40" y="514" width="210" height="44" class="ok"/>
+<text x="145" y="532" text-anchor="middle"><tspan class="b">智能体用例集</tspan><tspan x="145" dy="15">仿真或真实后端，记录 mock 比例</tspan></text>
+<text x="40" y="600" class="lab">每个模型跑同一批题：</text>
+<text x="40" y="616" class="lab">温度 0.2 · top_p 0.9 · 512 词元</text>
+<text x="40" y="632" class="lab">基座 / 10k / 30k / 对齐 500 / 1000</text>
+
+<!-- 文本模型指标 -->
+<rect x="290" y="70" width="740" height="230" class="bg"/>
+<text x="304" y="90" class="lane">文本模型：七套指标（脚本 eval_ppl / eval_qa_similarity / eval_structure_safety / eval_ceval_medical）</text>
+<rect x="310" y="104" width="170" height="44" class="ok"/><text x="395" y="122" text-anchor="middle"><tspan class="b">困惑度 / 验证损失</tspan><tspan x="395" dy="15">留出长文本，最多 1,000 条</tspan></text>
+<rect x="490" y="104" width="170" height="44" class="ok"/><text x="575" y="122" text-anchor="middle"><tspan class="b">参考答案相似度</tspan><tspan x="575" dy="15">向量余弦均值，不是准确率</tspan></text>
+<rect x="670" y="104" width="170" height="44" class="ok"/><text x="755" y="122" text-anchor="middle"><tspan class="b">结构命中率</tspan><tspan x="755" dy="15">分析 / 建议 / 风险 / 就医四段</tspan></text>
+<rect x="850" y="104" width="160" height="44" class="ok"/><text x="930" y="122" text-anchor="middle"><tspan class="b">安全规则通过率</tspan><tspan x="930" dy="15">无绝对诊断、剂量等命中</tspan></text>
+<rect x="310" y="166" width="170" height="44" class="ok"/><text x="395" y="184" text-anchor="middle"><tspan class="b">高风险表达率</tspan><tspan x="395" dy="15">"一定是 / 无需就医 / 自行停药"</tspan></text>
+<rect x="490" y="166" width="170" height="44" class="ok"/><text x="575" y="184" text-anchor="middle"><tspan class="b">平均回答长度</tspan><tspan x="575" dy="15">看短答与复读</tspan></text>
+<rect x="670" y="166" width="170" height="44" class="ok"/><text x="755" y="184" text-anchor="middle"><tspan class="b">C-Eval 医学准确率</tspan><tspan x="755" dy="15">按科目统计，小样本只验流程</tspan></text>
+<rect x="850" y="166" width="160" height="44" class="plan"/><text x="930" y="184" text-anchor="middle"><tspan class="b">第二轮新增</tspan><tspan x="930" dy="15">关键词覆盖 · 格式 · 偏好胜率</tspan></text>
+<text x="310" y="232" class="lab">结果（V100 主线，困惑度 / 相似度 / 安全通过 / 结构命中 / 高风险 / 平均长度）：</text>
+<text x="310" y="248" class="mono">基座 22.93 / 0.908 / 93.0% / 32.5% / 2.0% / 633    微调 10k 17.54 / 0.911 / 98.5% / 0% / 1.0% / 292</text>
+<text x="310" y="264" class="mono">微调 30k 17.55 / 0.910 / 96.0% / 0% / 3.5% / 267    对齐 500 17.55 / 0.913 / 98.5% / 0% / 1.5% / 278</text>
+<text x="310" y="280" class="mono">对齐 1000 17.55 / 0.910 / 97.5% / 0.5% / 2.0% / 292    C-Eval 全部 100%（15 题）</text>
+
+<!-- 知识库指标 -->
+<rect x="290" y="316" width="740" height="120" class="bg"/>
+<text x="304" y="336" class="lane">知识库：把链路切成三层分别评（eval_retrieval / eval_citation）</text>
+<rect x="310" y="350" width="170" height="44" class="ok"/><text x="395" y="368" text-anchor="middle"><tspan class="b">单路召回@k</tspan><tspan x="395" dy="15">语义 / 词面 / 术语各自能捞多少</tspan></text>
+<rect x="490" y="350" width="170" height="44" class="ok"/><text x="575" y="368" text-anchor="middle"><tspan class="b">融合增益</tspan><tspan x="575" dy="15">融合后召回 − 最好单路</tspan></text>
+<rect x="670" y="350" width="170" height="44" class="ok"/><text x="755" y="368" text-anchor="middle"><tspan class="b">精排增量 MRR · nDCG</tspan><tspan x="755" dy="15">召回不该变，名次该变</tspan></text>
+<rect x="850" y="350" width="160" height="44" class="ok"/><text x="930" y="368" text-anchor="middle"><tspan class="b">引用精确 / 召回</tspan><tspan x="930" dy="15">剂量违规 · 拒答率</tspan></text>
+<text x="310" y="420" class="lab">弱标注只衡量字面重合且偏爱词面路，只能做回归监控；两项引用指标必须一起看：只看精确率，少引用就高分；只看召回率，乱引用也高分。</text>
+
+<!-- 智能体指标 -->
+<rect x="290" y="452" width="740" height="218" class="bg"/>
+<text x="304" y="472" class="lane">智能体：视觉问答、定位、溯源、系统工程四组（eval_vqa / eval_localization / eval_grounding / eval_agent）</text>
+<rect x="310" y="486" width="170" height="44" class="sim"/><text x="395" y="504" text-anchor="middle"><tspan class="b">闭合题准确率</tspan><tspan x="395" dy="15">是 / 否 题，VQA-RAD</tspan></text>
+<rect x="490" y="486" width="170" height="44" class="sim"/><text x="575" y="504" text-anchor="middle"><tspan class="b">开放题 F1</tspan><tspan x="575" dy="15">词级重合</tspan></text>
+<rect x="670" y="486" width="170" height="44" class="sim"/><text x="755" y="504" text-anchor="middle"><tspan class="b">JSON 解析率</tspan><tspan x="755" dy="15">结构化输出成功率</tspan></text>
+<rect x="850" y="486" width="160" height="44" class="sim"/><text x="930" y="504" text-anchor="middle"><tspan class="b">平均交并比 · 命中@0.5</tspan><tspan x="930" dy="15">框对专家标注</tspan></text>
+<rect x="310" y="548" width="170" height="44" class="sim"/><text x="395" y="566" text-anchor="middle"><tspan class="b">Dice</tspan><tspan x="395" dy="15">掩码对专家分割</tspan></text>
+<rect x="490" y="548" width="170" height="44" class="ok"/><text x="575" y="566" text-anchor="middle"><tspan class="b">无依据结论率</tspan><tspan x="575" dy="15">答案里找不到依据的表述占比</tspan></text>
+<rect x="670" y="548" width="170" height="44" class="ok"/><text x="755" y="566" text-anchor="middle"><tspan class="b">绝对诊断率 · 剂量表达率</tspan><tspan x="755" dy="15">复用训练侧正则</tspan></text>
+<rect x="850" y="548" width="160" height="44" class="ok"/><text x="930" y="566" text-anchor="middle"><tspan class="b">工具成功率 · 完成率</tspan><tspan x="930" dy="15">延迟 p95 · mock 比例</tspan></text>
+<text x="310" y="620" class="lab">本机仿真实测：四种意图跑通，综合报告 3.9 秒，安全标记为空；mock 比例大于 0 的任何输出都自带警告，仿真验证的是编排不是能力。</text>
+<text x="310" y="638" class="lab">视觉问答与定位两组数字要等服务器上放好 VQA-RAD 与 CheXlocalize 后才有；先拿不微调的基线，再决定训不训视觉模型。</text>
+
+<!-- 汇入箭头 -->
+<path class="e" d="M250,126 H310"/><path class="e" d="M250,188 H310"/><path class="e" d="M250,250 H310"/>
+<path class="e" d="M250,352 H310"/><path class="e" d="M250,474 H310"/><path class="e" d="M250,536 H310"/>
+
+<!-- 右列 -->
+<rect x="1050" y="70" width="570" height="600" class="bg"/>
+<text x="1064" y="90" class="lane">汇总 → 报告 → 坏例 → 决策</text>
+<rect x="1080" y="104" width="240" height="58" class="ok"/>
+<text x="1200" y="122" text-anchor="middle"><tspan class="b">指标汇总表</tspan><tspan x="1200" dy="15">summary_metrics.csv / json</tspan><tspan x="1200" dy="15">按模型一行、按指标一列</tspan></text>
+<path class="e" d="M1200,162 V186"/>
+<rect x="1080" y="186" width="240" height="58" class="ok"/>
+<text x="1200" y="204" text-anchor="middle"><tspan class="b">自动生成实验报告</tspan><tspan x="1200" dy="15">中英文各一份，带案例与局限性</tspan><tspan x="1200" dy="15">口径句强制出现</tspan></text>
+<path class="e" d="M1200,244 V268"/>
+<rect x="1080" y="268" width="240" height="58" class="risk"/>
+<text x="1200" y="286" text-anchor="middle"><tspan class="b">坏例分析</tspan><tspan x="1200" dy="15">读预测文件挑失败：复读、短答</tspan><tspan x="1200" dy="15">剂量、绝对诊断、无依据表述</tspan></text>
+<path class="e" d="M1200,326 V350"/>
+<rect x="1080" y="350" width="240" height="72" class="st"/>
+<text x="1200" y="368" text-anchor="middle"><tspan class="b">改进决策</tspan><tspan x="1200" dy="15">数据问题 → 改配额 / 去重 / 分层抽样</tspan><tspan x="1200" dy="15">奖励问题 → 奖励 v2 / 难样本</tspan><tspan x="1200" dy="15">证据问题 → 补语料 / 术语表</tspan></text>
+<path class="p" d="M1080,386 H1060 V64 H145 V104"/>
+<text x="800" y="60" class="lab">回流：改动后同一留出集、同一种子重跑</text>
+<rect x="1340" y="104" width="260" height="128" class="risk"/>
+<text x="1470" y="122" text-anchor="middle"><tspan class="b">口径与已知问题</tspan><tspan x="1470" dy="15">评测脚本默认只评 200 条问答，报告口径 500</tspan><tspan x="1470" dy="15">C-Eval 只有 15 题，全模型 100% 无区分度</tspan><tspan x="1470" dy="15">简历 15.54 / 1,500 条，仓库 17.54 / 1,000 条</tspan><tspan x="1470" dy="15">留出集按文件顺序取，不是随机分层</tspan><tspan x="1470" dy="15">C-Eval dev 既当锚点又当评测，第二轮改 val</tspan><tspan x="1470" dy="15">训练内验证来自训练文件本身</tspan></text>
+<rect x="1340" y="250" width="260" height="100" class="plan"/>
+<text x="1470" y="268" text-anchor="middle"><tspan class="b">补充的评测方式（未实现）</tspan><tspan x="1470" dy="15">强模型按评分细则做裁判，成对偏好胜率</tspan><tspan x="1470" dy="15">医生盲评：随机顺序，只看答案不看模型名</tspan><tspan x="1470" dy="15">红队测试：诱导剂量、诱导确诊、越狱</tspan><tspan x="1470" dy="15">上线后指标：p95、降级率、复核驳回率</tspan></text>
+<rect x="1340" y="368" width="260" height="72" class="st"/>
+<text x="1470" y="386" text-anchor="middle"><tspan class="b">为什么不叫"准确率"</tspan><tspan x="1470" dy="15">相似度测的是像不像参考答案</tspan><tspan x="1470" dy="15">结构命中测的是有没有四段</tspan><tspan x="1470" dy="15">都能被"抄参考答案"刷高</tspan></text>
+<text x="1080" y="470" class="lab">评测是同一批模型跑同一批题：基座、10k、30k、对齐 500、对齐 1000；</text>
+<text x="1080" y="488" class="lab">任何一次改动都在同一留出集与同一随机种子下重跑，才能比出差别。</text>
+<text x="1080" y="520" class="lab">评测并行注意：多模型同机评测必须显式指定单卡，否则自动分配会把一个模型</text>
+<text x="1080" y="538" class="lab">切到多卡上，速度反而更慢；这是迁到 8 卡机器时踩过的坑。</text>
+<text x="1080" y="580" class="lab">坏例分析的产出不是结论而是任务：每条坏例归到"数据 / 奖励 / 证据 / 视觉"</text>
+<text x="1080" y="598" class="lab">四类之一，进入下一轮的改动清单，改完再回到同一张表看是否真的变好。</text>
+
+<!-- 底部 -->
+<rect x="20" y="690" width="1600" height="150" class="bg"/>
+<text x="34" y="710" class="lane">这套评测解决什么、为什么这样设计、经历过什么</text>
+<text x="34" y="734" class="lab">解决什么：一个医疗问答系统最难回答的是"变好了吗"。参考相似度只有 0.908 到 0.913 的差距，看不出来；把安全通过率、结构命中率、高风险表达率、长度拆开看，才发现微调换来了安全但丢了结构，对齐把安全再推高但没有找回结构。</text>
+<text x="34" y="754" class="lab">为什么这样设计：检索、生成、视觉三段揉在一个端到端分数里，掉了一条证据和读错了一条证据长得一模一样，没法决定下一步调哪；所以知识库按"单路 → 融合 → 精排"三层评，智能体按"问答 → 定位 → 溯源 → 工程"四组评。</text>
+<text x="34" y="774" class="lab">经历过什么：伪造引用曾拿到召回率 1.0，加了引用真实性校验；C-Eval 只有 15 题所有模型 100%，于是只当流程验证；评测脚本默认 200 条与报告口径 500 条不一致，是这次核对才发现的；简历上的困惑度与条数与仓库不符，需要补跑 1,500 条留出集。</text>
+<text x="34" y="794" class="lab">怎么评评测本身：留出集与训练集按编号互斥有脚本保证；弱标注结果只做回归监控；任何含 mock 的评测输出自带警告；报告生成脚本把口径句写死，截图也删不掉。</text>
+<g transform="translate(30,856)">
+<rect x="0" y="0" width="14" height="14" class="ok"/><text x="20" y="12">已跑通 / 已有数字</text>
+<rect x="130" y="0" width="14" height="14" class="sim"/><text x="150" y="12">脚本就绪，等数据</text>
+<rect x="260" y="0" width="14" height="14" class="risk"/><text x="280" y="12">已确认的问题 / 坏例</text>
+<rect x="400" y="0" width="14" height="14" class="st"/><text x="420" y="12">解释 / 决策</text>
+<rect x="500" y="0" width="14" height="14" class="plan"/><text x="520" y="12">规划中</text>
+</g>
+</svg>

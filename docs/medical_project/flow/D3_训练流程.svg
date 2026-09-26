@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 900" width="1640" height="900" role="img" aria-label="训练流程：监督微调与组相对策略优化两段的每一步、参数、奖励构成、已知问题与第二轮改动">
+<style>
+text{font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",sans-serif;fill:#1B2429;font-size:11px}
+.b{font-weight:700}.lab{fill:#4A5A64}.ttl{font-size:22px;font-weight:700;fill:#163A4F}.sub{font-size:12px;fill:#4A5A64}.lane{font-size:13px;font-weight:700;fill:#163A4F}
+.ok{fill:#E4F1E8;stroke:#3E8E5A;stroke-width:1.4}.sim{fill:#FBEFD9;stroke:#C8871E;stroke-width:1.4}.risk{fill:#F8E3E2;stroke:#B8413F;stroke-width:1.4}.new{fill:#ECE6F6;stroke:#6B4FA3;stroke-width:1.4}.plan{fill:#EEF1F3;stroke:#7A8790;stroke-width:1.4;stroke-dasharray:5 4}.st{fill:#E6F0F6;stroke:#2F7FA6;stroke-width:1.4}
+.bg{fill:#F5F7F8;stroke:#D5DDE2;stroke-width:1}
+.e{fill:none;stroke:#6F7E88;stroke-width:1.6;marker-end:url(#ar)}.bus{fill:none;stroke:#6F7E88;stroke-width:1.6}.p{fill:none;stroke:#7A8790;stroke-width:1.6;stroke-dasharray:6 5;marker-end:url(#arp)}
+</style>
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6F7E88"/></marker>
+<marker id="arp" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7A8790"/></marker>
+</defs>
+<rect width="1640" height="900" fill="#FFFFFF"/>
+<!-- 图 D3 训练流程 -->
+<text x="30" y="34" class="ttl">图 D3 · 训练流程：先监督微调拉风格，再用规则奖励做组相对策略优化压危险表达</text>
+<text x="30" y="54" class="sub">左半是监督微调，右半是对齐；主链自上而下，旁边是解释框。数字来自实验报告与训练脚本；红框是已确认的问题，虚线框是第二轮计划。</text>
+
+<!-- 左：SFT -->
+<rect x="30" y="70" width="750" height="670" class="bg"/>
+<text x="44" y="90" class="lane">监督微调：把通用模型的回答拉向"科普 + 就医建议"的风格</text>
+<rect x="60" y="104" width="300" height="58" class="ok"/>
+<text x="210" y="122" text-anchor="middle"><tspan class="b">输入：ShareGPT 格式 10k / 30k</tspan><tspan x="210" dy="15">每条 = 安全前缀 + 问题 → 参考回答</tspan><tspan x="210" dy="15">类别与筛选分作为元数据保留</tspan></text>
+<path class="e" d="M210,162 V186"/>
+<rect x="60" y="186" width="300" height="58" class="ok"/>
+<text x="210" y="204" text-anchor="middle"><tspan class="b">分词与截断</tspan><tspan x="210" dy="15">最大长度 1,024 词元</tspan><tspan x="210" dy="15">提示词部分不计损失，只学回答</tspan></text>
+<path class="e" d="M210,244 V268"/>
+<rect x="60" y="268" width="300" height="58" class="ok"/>
+<text x="210" y="286" text-anchor="middle"><tspan class="b">低秩适配器</tspan><tspan x="210" dy="15">秩 8 · 缩放 16 · 丢弃 0.05</tspan><tspan x="210" dy="15">只挂在 q、v 两个投影上</tspan></text>
+<path class="e" d="M210,326 V350"/>
+<rect x="60" y="350" width="300" height="58" class="ok"/>
+<text x="210" y="368" text-anchor="middle"><tspan class="b">优化设置</tspan><tspan x="210" dy="15">学习率 2e-5 · 预热 3% · 权重衰减 0.01</tspan><tspan x="210" dy="15">批 1 × 累积 8 · 1 轮 · 梯度检查点</tspan></text>
+<path class="e" d="M210,408 V432"/>
+<rect x="60" y="432" width="300" height="58" class="risk"/>
+<text x="210" y="450" text-anchor="middle"><tspan class="b">训练内验证</tspan><tspan x="210" dy="15">验证目录就是训练目录，取前 500 条</tspan><tspan x="210" dy="15">只能看收敛，不能当泛化证据</tspan></text>
+<path class="e" d="M210,490 V514"/>
+<rect x="60" y="514" width="300" height="58" class="ok"/>
+<text x="210" y="532" text-anchor="middle"><tspan class="b">产物：适配器 + 训练日志</tspan><tspan x="210" dy="15">10k：训练损失 2.11 · 验证 2.03 · 困惑度 7.63</tspan><tspan x="210" dy="15">30k：训练损失 2.13 · 验证 2.03 · 困惑度 7.65</tspan></text>
+<!-- 左侧解释框 -->
+<rect x="420" y="104" width="330" height="58" class="st"/>
+<text x="585" y="122" text-anchor="middle"><tspan class="b">一条样本长什么样</tspan><tspan x="585" dy="15">用户："请以科普和就医建议为主……" + 原问题</tspan><tspan x="585" dy="15">助手：原数据里的参考回答</tspan></text>
+<path class="e" d="M360,133 H420"/>
+<rect x="420" y="268" width="330" height="58" class="st"/>
+<text x="585" y="286" text-anchor="middle"><tspan class="b">为什么只挂 q、v</tspan><tspan x="585" dy="15">可训练参数约万分之五，单卡 V100 能跑</tspan><tspan x="585" dy="15">任务是风格迁移不是灌知识，够用</tspan></text>
+<path class="e" d="M360,297 H420"/>
+<rect x="420" y="350" width="330" height="58" class="sim"/>
+<text x="585" y="368" text-anchor="middle"><tspan class="b">精度档位</tspan><tspan x="585" dy="15">A100 / H100：bf16 + flash attention</tspan><tspan x="585" dy="15">V100：fp16；A40 自动识别会走错，需手动指定</tspan></text>
+<path class="e" d="M360,379 H420"/>
+<rect x="420" y="432" width="330" height="58" class="plan"/>
+<text x="585" y="450" text-anchor="middle"><tspan class="b">改进：独立验证集</tspan><tspan x="585" dy="15">从留出集切 500 条当训练内验证</tspan><tspan x="585" dy="15">或不给验证目录，让框架随机切 1%</tspan></text>
+<path class="p" d="M360,461 H420"/>
+<rect x="420" y="514" width="330" height="58" class="ok"/>
+<text x="585" y="532" text-anchor="middle"><tspan class="b">训练时长</tspan><tspan x="585" dy="15">10k：V100 3,990 秒 · A100 3,034 秒</tspan><tspan x="585" dy="15">30k：V100 13,077 秒 · A100 5,636 秒</tspan></text>
+<path class="e" d="M360,543 H420"/>
+<text x="60" y="612" class="lab">效果：留出困惑度 22.93 → 17.54（基座 → 10k），安全通过 93.0% → 98.5%，平均长度 633 → 292。</text>
+<text x="60" y="630" class="lab">代价：显式四段结构命中率 32.5% → 0%，训练数据本身没有这种结构，模型学会了"简短口语"。</text>
+<text x="60" y="648" class="lab">30k 不比 10k 好（困惑度 17.55 vs 17.54，高风险表达 3.5% vs 1.0%）：失衡与噪声一起被放大，数量不是瓶颈。</text>
+<text x="60" y="690" class="lab">迁到 8 张 A40 时的三个必改点：精度档位手动指定；GRPO 约束"每卡批 × 卡数"能被采样数整除；评测并行时显式指定单卡。</text>
+<text x="60" y="708" class="lab">可选升级：8 × 48 GB 足够跑 14B 模型的低秩微调，把 7B 留作规模对照。</text>
+
+<!-- 右：GRPO -->
+<rect x="810" y="70" width="800" height="670" class="bg"/>
+<text x="824" y="90" class="lane">组相对策略优化：不训奖励模型，用四条可验证的规则打分</text>
+<rect x="840" y="104" width="300" height="58" class="ok"/>
+<text x="990" y="122" text-anchor="middle"><tspan class="b">输入：1,000 / 500 条对齐样本</tspan><tspan x="990" dy="15">问题 + 参考答案 + 必需段落 + 安全规则</tspan><tspan x="990" dy="15">切 10% 做训练内验证 → 实训 900 / 450</tspan></text>
+<path class="e" d="M990,162 V186"/>
+<rect x="840" y="186" width="300" height="58" class="ok"/>
+<text x="990" y="204" text-anchor="middle"><tspan class="b">策略初始化</tspan><tspan x="990" dy="15">基座 + 10k 微调适配器作为起点</tspan><tspan x="990" dy="15">再挂 7 层投影的新低秩适配器</tspan></text>
+<path class="e" d="M990,244 V268"/>
+<rect x="840" y="268" width="300" height="58" class="ok"/>
+<text x="990" y="286" text-anchor="middle"><tspan class="b">采样</tspan><tspan x="990" dy="15">每题生成 G=2 个回答（V100 显存所限）</tspan><tspan x="990" dy="15">最长 512 词元，用 bf16 不用 fp16</tspan></text>
+<path class="bus" d="M990,326 V338"/><path class="bus" d="M920,338 H1460"/>
+<path class="e" d="M920,338 V350"/><path class="e" d="M1100,338 V350"/><path class="e" d="M1280,338 V350"/><path class="e" d="M1460,338 V350"/>
+<rect x="840" y="350" width="160" height="72" class="ok"/>
+<text x="920" y="368" text-anchor="middle"><tspan class="b">格式奖励</tspan><tspan x="920" dy="15">必需段落是否出现</tspan><tspan x="920" dy="15">按类别给不同段落</tspan><tspan x="920" dy="15">如急诊：初步判断…</tspan></text>
+<rect x="1020" y="350" width="160" height="72" class="ok"/>
+<text x="1100" y="368" text-anchor="middle"><tspan class="b">参考相似度</tspan><tspan x="1100" dy="15">与参考答案的向量余弦</tspan><tspan x="1100" dy="15">缺模型时字符 n-gram</tspan><tspan x="1100" dy="15">不是医学准确率</tspan></text>
+<rect x="1200" y="350" width="160" height="72" class="ok"/>
+<text x="1280" y="368" text-anchor="middle"><tspan class="b">安全奖励</tspan><tspan x="1280" dy="15">基准 0.85，正向表达 +0.04</tspan><tspan x="1280" dy="15">绝对诊断 −0.25</tspan><tspan x="1280" dy="15">剂量/替代医生/高危 −0.35</tspan></text>
+<rect x="1380" y="350" width="160" height="72" class="ok"/>
+<text x="1460" y="368" text-anchor="middle"><tspan class="b">长度与重复惩罚</tspan><tspan x="1460" dy="15">过短过长扣分</tspan><tspan x="1460" dy="15">n-gram 复读扣分</tspan><tspan x="1460" dy="15">针对"药名循环"坏例</tspan></text>
+<path class="bus" d="M920,422 V434"/><path class="bus" d="M1100,422 V434"/><path class="bus" d="M1280,422 V434"/><path class="bus" d="M1460,422 V434"/>
+<path class="bus" d="M920,434 H1460"/><path class="e" d="M990,434 V446"/>
+<rect x="840" y="446" width="300" height="58" class="ok"/>
+<text x="990" y="464" text-anchor="middle"><tspan class="b">组内标准化优势</tspan><tspan x="990" dy="15">同一题的 G 个回答减均值、除标准差</tspan><tspan x="990" dy="15">不需要价值网络，显存省一半</tspan></text>
+<path class="e" d="M990,504 V528"/>
+<rect x="840" y="528" width="300" height="58" class="ok"/>
+<text x="990" y="546" text-anchor="middle"><tspan class="b">策略更新</tspan><tspan x="990" dy="15">学习率 5e-7 · KL 系数 0.001 · 1 轮</tspan><tspan x="990" dy="15">裁剪比率限制单步偏移</tspan></text>
+<path class="e" d="M990,586 V610"/>
+<rect x="840" y="610" width="300" height="58" class="ok"/>
+<text x="990" y="628" text-anchor="middle"><tspan class="b">产物与前后对比</tspan><tspan x="990" dy="15">同题 20 条"训练前 / 后"案例人工看</tspan><tspan x="990" dy="15">500 版安全 98.5% · 1000 版 97.5%</tspan></text>
+<rect x="1200" y="446" width="380" height="58" class="risk"/>
+<text x="1390" y="464" text-anchor="middle"><tspan class="b">已确认的问题</tspan><tspan x="1390" dy="15">文档写的权重 0.35 / 0.30 / 0.25 / −0.10 从未生效，实际等权</tspan><tspan x="1390" dy="15">"像参考答案"与"有固定结构"互相拉扯，结构命中归零</tspan></text>
+<rect x="1200" y="528" width="380" height="58" class="st"/>
+<text x="1390" y="546" text-anchor="middle"><tspan class="b">为什么不用 PPO 或 DPO</tspan><tspan x="1390" dy="15">PPO 要价值网络，7B 再加一个网络单卡放不下</tspan><tspan x="1390" dy="15">DPO 要成对偏好数据，这里只有参考答案与规则</tspan></text>
+<rect x="1200" y="610" width="380" height="58" class="st"/>
+<text x="1390" y="628" text-anchor="middle"><tspan class="b">KL 系数 0.001 意味着什么</tspan><tspan x="1390" dy="15">几乎不拴住策略，靠小学习率和 1 轮控制漂移</tspan><tspan x="1390" dy="15">第二轮可试 DAPO 的去 KL + 动态采样</tspan></text>
+<text x="840" y="700" class="lab">效果怎么看：对比表里 500 版参考相似度 0.913、安全通过 98.5% 均为最高；1000 版反而略差，说明数据质量比数量重要，也说明 G=2 的信号太弱。</text>
+<text x="840" y="718" class="lab">评测口径纪律：参考相似度、结构命中、安全通过率都是启发式信号，报告里刻意不出现"医学准确率"这个词。</text>
+
+<!-- 底部三框 -->
+<rect x="30" y="760" width="500" height="86" class="risk"/>
+<text x="280" y="778" text-anchor="middle"><tspan class="b">失败与改进史</tspan><tspan x="280" dy="15">结构命中 32.5% → 0%：训练数据无结构，奖励冲突</tspan><tspan x="280" dy="15">案例 4 出现"速效救心丸 10 粒…"无限复读 → 加重复惩罚</tspan><tspan x="280" dy="15">1000 条不如 500 条 → 转向难样本挖掘而不是加量</tspan><tspan x="280" dy="15">训练内验证不是留出 → 第二轮改用独立验证集</tspan></text>
+<rect x="560" y="760" width="500" height="86" class="plan"/>
+<text x="810" y="778" text-anchor="middle"><tspan class="b">第二轮（难样本 GRPO）计划</tspan><tspan x="810" dy="15">1,500 条难样本 · 每题 4 个回答 · 长度 512 主实验、640 消融</tspan><tspan x="810" dy="15">奖励 v2 = 0.30 相似 + 0.25 关键词覆盖 + 0.15 格式 + 0.20 安全 − 0.20 风险</tspan><tspan x="810" dy="15">新增指标：关键词覆盖率、格式合规率、安全违规率、成对偏好胜率</tspan><tspan x="810" dy="15">正式考试评测改用 ceval_val，dev 已用于构造训练题</tspan></text>
+<rect x="1090" y="760" width="520" height="86" class="new"/>
+<text x="1350" y="778" text-anchor="middle"><tspan class="b">前沿方向（2025 年以来）</tspan><tspan x="1350" dy="15">可验证奖励 RLVR 与本项目同源：规则打分就是"可验证"</tspan><tspan x="1350" dy="15">DAPO：去 KL、动态采样、超长惩罚；GSPO：序列级重要性比</tspan><tspan x="1350" dy="15">智能体强化学习：把检索与工具调用放进训练循环</tspan><tspan x="1350" dy="15">过程奖励模型：逐步打分而不只看最终答案</tspan></text>
+<g transform="translate(30,866)">
+<rect x="0" y="0" width="14" height="14" class="ok"/><text x="20" y="12">已跑通 / 已有数字</text>
+<rect x="130" y="0" width="14" height="14" class="sim"/><text x="150" y="12">环境相关设置</text>
+<rect x="250" y="0" width="14" height="14" class="risk"/><text x="270" y="12">已确认的问题</text>
+<rect x="370" y="0" width="14" height="14" class="st"/><text x="390" y="12">解释</text>
+<rect x="440" y="0" width="14" height="14" class="plan"/><text x="460" y="12">第二轮计划</text>
+<rect x="550" y="0" width="14" height="14" class="new"/><text x="570" y="12">前沿方向</text>
+</g>
+</svg>
